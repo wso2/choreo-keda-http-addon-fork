@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -92,20 +94,37 @@ func newForwardingHandler(
 			}
 			return
 		}
-		targetSvcURL, err := targetSvcURL(*routingTarget)
-		if err != nil {
-			lggr.Error(err, "forwarding failed")
-			w.WriteHeader(500)
-			if _, err := w.Write([]byte("error getting backend service URL")); err != nil {
-				lggr.Error(err, "could not write error response to client")
+		var targetURL *url.URL
+		if i := strings.Index(r.Host, ":"); i != -1 {
+			// if the host header contains port, route to ( routingTarget.Service:port)
+			targetPort := r.Host[i+1:]
+			//targetSvcName := routingTarget.Service
+			targetHost := fmt.Sprintf("http://%s.%s:%s", routingTarget.Service, routingTarget.Namespace, targetPort)
+			if targetURL, err = url.Parse(targetHost); err != nil {
+				lggr.Error(err, fmt.Sprintf("forwarding failed"))
+				w.WriteHeader(500)
+				if _, err := w.Write([]byte(fmt.Sprintf("error parsing host:port: %s to URL", targetHost))); err != nil {
+					lggr.Error(err, "could not write error response to client")
+				}
+				return
 			}
-			return
+		} else {
+			//if host header does not contain port, route to target stored in the routing table
+			targetURL, err = targetSvcURL(*routingTarget)
+			if err != nil {
+				lggr.Error(err, "forwarding failed")
+				w.WriteHeader(500)
+				if _, err := w.Write([]byte("error getting backend service URL")); err != nil {
+					lggr.Error(err, "could not write error response to client")
+				}
+				return
+			}
 		}
 		isColdStart := "false"
 		if replicas == 0 {
 			isColdStart = "true"
 		}
 		w.Header().Add("X-KEDA-HTTP-Cold-Start", isColdStart)
-		forwardRequest(lggr, w, r, roundTripper, targetSvcURL)
+		forwardRequest(lggr, w, r, roundTripper, targetURL)
 	})
 }
