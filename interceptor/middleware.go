@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -11,14 +12,27 @@ import (
 )
 
 func getHost(r *http.Request) (string, error) {
-	// check the host header first, then the request host
-	// field (which may contain the actual URL if there is no
-	// host header)
-	if r.Header.Get("Host") != "" {
-		return r.Header.Get("Host"), nil
-	}
-	if r.Host != "" {
-		return r.Host, nil
+	host := r.Host
+	if host != "" {
+		// removing port if exists
+		if i := strings.Index(host, ":"); i != -1 {
+			host = host[:i]
+		}
+		// handling the case where host contains only the service name (without the namespace)
+		if i := strings.Index(host, "."); i == -1 {
+			choreoProjectNs := r.Header.Get("X-Choreo-Project-Ns")
+			if choreoProjectNs == "" {
+				return "", fmt.Errorf("X-Choreo-Project-Ns header was not found in the service to service request")
+			}
+			host = host + "." + choreoProjectNs
+		}
+		// removing svc.cluster.local
+		// check for suffix svc.cluster.local in host string
+		if strings.HasSuffix(host, ".svc.cluster.local") {
+			// remove suffix from the host
+			host = strings.TrimSuffix(host, ".svc.cluster.local")
+		}
+		return host, nil
 	}
 	return "", fmt.Errorf("host not found")
 }

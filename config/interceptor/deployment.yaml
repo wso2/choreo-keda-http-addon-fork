@@ -5,6 +5,9 @@ metadata:
 spec:
   replicas: 3
   template:
+    metadata:
+      annotations:
+        policy.cilium.io/proxy-visibility: <Ingress/8080/TCP/HTTP>,<Egress/8080/UDP/DNS>,<Egress/80/TCP/HTTP>
     spec:
       affinity:
         nodeAffinity:
@@ -37,7 +40,7 @@ spec:
         - name: KEDA_HTTP_KEEP_ALIVE
           value: "1s"
         - name: KEDA_RESPONSE_HEADER_TIMEOUT
-          value: "500ms"
+          value: "120000ms"
         - name: KEDA_CONDITION_WAIT_TIMEOUT
           value: "20s"
         - name: KEDA_HTTP_DEPLOYMENT_CACHE_POLLING_INTERVAL_MS
