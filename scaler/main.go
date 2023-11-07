@@ -102,7 +102,7 @@ func main() {
 
 	grp, ctx := errgroup.WithContext(ctx)
 
-	// start the deployment informer
+	// start the deployment informer.
 	grp.Go(func() error {
 		defer done()
 		return deployInformer.Start(ctx)

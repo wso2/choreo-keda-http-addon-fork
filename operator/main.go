@@ -192,7 +192,7 @@ func main() {
 		return mgr.Start(ctx)
 	})
 
-	// start the admin server to serve routing table information
+	// start the admin server to serve routing table information.
 	// to the interceptors
 	errGrp.Go(func() error {
 		defer done()

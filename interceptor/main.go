@@ -112,7 +112,7 @@ func main() {
 
 	errGrp, ctx := errgroup.WithContext(ctx)
 
-	// start the deployment cache updater
+	// start the deployment cache updater.
 	errGrp.Go(func() error {
 		defer ctxDone()
 		err := deployCache.Start(ctx)
