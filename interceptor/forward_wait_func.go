@@ -10,7 +10,7 @@ import (
 	"github.com/kedacore/http-add-on/pkg/k8s"
 )
 
-// forwardWaitFunc is a function that waits for a condition
+// forwardWaitFunc is a function that waits for a condition.
 // before proceeding to serve the request.
 type forwardWaitFunc func(context.Context, string, string) (int, error)
 
