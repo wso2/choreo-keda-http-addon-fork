@@ -1,7 +1,7 @@
 // The HTTP Scaler is the standard implementation for a KEDA external scaler
 // which can be found at https://keda.sh/docs/2.0/concepts/external-scalers/
 // This scaler has the implementation of an HTTP request counter and informs
-// KEDA of the current request number for the queue in order to scale the app
+// KEDA of the current request number for the queue in order to scale the app.
 package main
 
 import (

@@ -121,7 +121,7 @@ func main() {
 
 		// TODO(pedrotorres): remove this when we stop relying on ConfigMaps for the routing table
 		// workaround for using the same K8s client for both the routing table and the HTTPScaledObject
-		// this was already broken if the operator was running only for a single namespace
+		// this was already broken if the operator was running only for a single namespace.
 		ClientDisableCacheFor: []client.Object{
 			&corev1.ConfigMap{},
 		},
