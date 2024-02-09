@@ -54,6 +54,7 @@ func countMiddleware(
 			}
 			return
 		}
+		lggr.Info("request received.", "host", host)
 		if err := q.Resize(host, +1); err != nil {
 			log.Printf("Error incrementing queue for %q (%s)", r.RequestURI, err)
 		}
