@@ -125,6 +125,7 @@ func newForwardingHandler(
 			isColdStart = "true"
 		}
 		w.Header().Add("X-KEDA-HTTP-Cold-Start", isColdStart)
+		lggr.Info("dispatching request.", "host", host, "target_url", targetURL, "isColdStart", isColdStart)
 		forwardRequest(lggr, w, r, roundTripper, targetURL)
 	})
 }
