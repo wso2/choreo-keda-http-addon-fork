@@ -19,26 +19,6 @@ type FakeCounter struct {
 	ResizeTimeout time.Duration
 }
 
-// Count implements Counter.
-func (f *FakeCounter) Count(host string) int {
-	panic("unimplemented")
-}
-
-// PostponeDuration implements Counter.
-func (f *FakeCounter) PostponeDuration() time.Duration {
-	panic("unimplemented")
-}
-
-// PostponeResize implements Counter.
-func (f *FakeCounter) PostponeResize(host string, time time.Time) {
-	panic("unimplemented")
-}
-
-// ProcessPostponedResizes implements Counter.
-func (f *FakeCounter) ProcessPostponedResizes(sleep time.Duration) {
-	panic("unimplemented")
-}
-
 func NewFakeCounter() *FakeCounter {
 	return &FakeCounter{
 		mapMut:        new(sync.RWMutex),
@@ -91,16 +71,6 @@ var _ CountReader = &FakeCountReader{}
 type FakeCountReader struct {
 	current int
 	err     error
-}
-
-// Count implements CountReader.
-func (f *FakeCountReader) Count(host string) int {
-	panic("unimplemented")
-}
-
-// PostponeDuration implements CountReader.
-func (f *FakeCountReader) PostponeDuration() time.Duration {
-	panic("unimplemented")
 }
 
 func (f *FakeCountReader) Current() (*Counts, error) {

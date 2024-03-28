@@ -2,7 +2,6 @@ package queue
 
 import (
 	"sync"
-	"time"
 )
 
 // CountReader represents the size of a virtual HTTP queue, possibly
@@ -14,10 +13,6 @@ type CountReader interface {
 	// Current returns the current count of pending requests
 	// for the given hostname
 	Current() (*Counts, error)
-
-	Count(host string) int
-
-	PostponeDuration() time.Duration
 }
 
 // QueueCounter represents a virtual HTTP queue, possibly distributed across
@@ -39,33 +34,22 @@ type Counter interface {
 	// associated counts from the queue. returns true if it existed,
 	// false otherwise.
 	Remove(host string) bool
-
-	// PostponeResize sets the last request time for the given host
-	PostponeResize(host string, time time.Time)
-
-	// ProcessPostponedResizes processes the postponed resizes
-	ProcessPostponedResizes(sleep time.Duration)
 }
 
 // Memory is a Counter implementation that
 // holds the HTTP queue in memory only. Always use
 // NewMemory to create one of these.
 type Memory struct {
-	countMap         map[string]int
-	postponedResizes map[string]time.Time
-	postponeDuration time.Duration
-	mut              *sync.RWMutex
+	countMap map[string]int
+	mut      *sync.RWMutex
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory(postponeDuration time.Duration) *Memory {
+func NewMemory() *Memory {
 	lock := new(sync.RWMutex)
-
 	return &Memory{
-		countMap:         make(map[string]int),
-		postponedResizes: make(map[string]time.Time),
-		postponeDuration: postponeDuration,
-		mut:              lock,
+		countMap: make(map[string]int),
+		mut:      lock,
 	}
 }
 
@@ -103,40 +87,4 @@ func (r *Memory) Current() (*Counts, error) {
 	cts := NewCounts()
 	cts.Counts = r.countMap
 	return cts, nil
-}
-
-func (r *Memory) Count(host string) int {
-	r.mut.RLock()
-	defer r.mut.RUnlock()
-	count, ok := r.countMap[host]
-	if !ok {
-		return 0
-	}
-	return count
-}
-
-func (r *Memory) PostponeResize(host string, time time.Time) {
-	r.mut.Lock()
-	defer r.mut.Unlock()
-	r.postponedResizes[host] = time
-}
-
-func (r *Memory) PostponeDuration() time.Duration {
-	return r.postponeDuration
-}
-
-func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
-	for {
-		time.Sleep(sleep)
-		r.mut.Lock()
-		defer r.mut.Unlock()
-		for host, resizeTime := range r.postponedResizes {
-			if resizeTime.Before(time.Now()) {
-				delete(r.postponedResizes, host)
-				if r.countMap[host] == 1 {
-					r.countMap[host] = 0
-				}
-			}
-		}
-	}
 }
