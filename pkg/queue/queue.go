@@ -129,7 +129,6 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 	for {
 		time.Sleep(sleep)
 		r.mut.Lock()
-		defer r.mut.Unlock()
 		for host, resizeTime := range r.postponedResizes {
 			if resizeTime.Before(time.Now()) {
 				delete(r.postponedResizes, host)
@@ -138,5 +137,6 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 				}
 			}
 		}
+		r.mut.Unlock()
 	}
 }
