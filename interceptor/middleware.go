@@ -59,11 +59,10 @@ func countMiddleware(
 		if err := q.Resize(host, +1); err != nil {
 			log.Printf("Error incrementing queue for %q (%s)", r.RequestURI, err)
 		}
-		q.SetLastRequestTime(host, time.Now())
 		defer func() {
-			count, lastRequest := q.Status(host)
-			if count == 1 && time.Since(lastRequest) < q.GetCooldown() {
-				lggr.Info("queue is empty and last request was less the cool down period, not decrementing", "host", host, "count", count, "lastRequest", lastRequest)
+			if q.Count(host) == 1 {
+				q.PostponeResize(host, time.Now().Add(q.PostponeDuration()))
+				lggr.Info("queue is empty and last request was less the cool down period, not decrementing", "host", host)
 				return
 			}
 

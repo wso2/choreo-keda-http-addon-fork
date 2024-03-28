@@ -15,9 +15,9 @@ type CountReader interface {
 	// for the given hostname
 	Current() (*Counts, error)
 
-	Status(host string) (int, time.Time)
+	Count(host string) int
 
-	GetCooldown() time.Duration
+	PostponeDuration() time.Duration
 }
 
 // QueueCounter represents a virtual HTTP queue, possibly distributed across
@@ -40,29 +40,32 @@ type Counter interface {
 	// false otherwise.
 	Remove(host string) bool
 
-	// SetLastRequestTime sets the last request time for the given host
-	SetLastRequestTime(host string, time time.Time)
+	// PostponeResize sets the last request time for the given host
+	PostponeResize(host string, time time.Time)
+
+	// ProcessPostponedResizes processes the postponed resizes
+	ProcessPostponedResizes(sleep time.Duration)
 }
 
 // Memory is a Counter implementation that
 // holds the HTTP queue in memory only. Always use
 // NewMemory to create one of these.
 type Memory struct {
-	countMap        map[string]int
-	lastRequestTime map[string]time.Time
-	cooldown        time.Duration
-	mut             *sync.RWMutex
+	countMap         map[string]int
+	postponedResizes map[string]time.Time
+	postponeDuration time.Duration
+	mut              *sync.RWMutex
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory(requestCooldown time.Duration) *Memory {
+func NewMemory(postponeDuration time.Duration) *Memory {
 	lock := new(sync.RWMutex)
 
 	return &Memory{
-		countMap:        make(map[string]int),
-		lastRequestTime: make(map[string]time.Time),
-		cooldown:        requestCooldown,
-		mut:             lock,
+		countMap:         make(map[string]int),
+		postponedResizes: make(map[string]time.Time),
+		postponeDuration: postponeDuration,
+		mut:              lock,
 	}
 }
 
@@ -102,36 +105,38 @@ func (r *Memory) Current() (*Counts, error) {
 	return cts, nil
 }
 
-func (r *Memory) Status(host string) (int, time.Time) {
+func (r *Memory) Count(host string) int {
 	r.mut.RLock()
 	defer r.mut.RUnlock()
 	count, ok := r.countMap[host]
 	if !ok {
-		return 0, time.Time{}
+		return 0
 	}
-	return count, r.lastRequestTime[host]
+	return count
 }
 
-func (r *Memory) SetLastRequestTime(host string, time time.Time) {
+func (r *Memory) PostponeResize(host string, time time.Time) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
-	r.lastRequestTime[host] = time
+	r.postponedResizes[host] = time
 }
 
-func (r *Memory) GetCooldown() time.Duration {
-	return r.cooldown
+func (r *Memory) PostponeDuration() time.Duration {
+	return r.postponeDuration
 }
 
-func (r *Memory) EnforceCooldown(delay time.Duration) {
+func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 	for {
-		time.Sleep(delay)
+		time.Sleep(sleep)
 		r.mut.Lock()
-		for host := range r.countMap {
-			// set the queue to 0 if the last request was more than the cooldown period
-			if time.Since(r.lastRequestTime[host]) > r.cooldown {
-				r.countMap[host] = 0
+		defer r.mut.Unlock()
+		for host, resizeTime := range r.postponedResizes {
+			if resizeTime.Before(time.Now()) {
+				delete(r.postponedResizes, host)
+				if r.countMap[host] == 1 {
+					r.countMap[host] = 0
+				}
 			}
 		}
-		r.mut.Unlock()
 	}
 }
