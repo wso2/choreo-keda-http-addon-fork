@@ -62,7 +62,7 @@ func countMiddleware(
 		defer func() {
 			if q.Count(host) == 1 {
 				q.PostponeResize(host, time.Now().Add(q.PostponeDuration()))
-				lggr.Info("queue is empty and last request was less the cool down period, not decrementing", "host", host)
+				lggr.Info("postponing resize", "host", host)
 				return
 			}
 
