@@ -2,6 +2,7 @@ package queue
 
 import (
 	"sync"
+	"time"
 )
 
 // CountReader represents the size of a virtual HTTP queue, possibly
@@ -13,6 +14,10 @@ type CountReader interface {
 	// Current returns the current count of pending requests
 	// for the given hostname
 	Current() (*Counts, error)
+
+	Status(host string) (int, time.Time)
+
+	GetCooldown() time.Duration
 }
 
 // QueueCounter represents a virtual HTTP queue, possibly distributed across
@@ -34,22 +39,30 @@ type Counter interface {
 	// associated counts from the queue. returns true if it existed,
 	// false otherwise.
 	Remove(host string) bool
+
+	// SetLastRequestTime sets the last request time for the given host
+	SetLastRequestTime(host string, time time.Time)
 }
 
 // Memory is a Counter implementation that
 // holds the HTTP queue in memory only. Always use
 // NewMemory to create one of these.
 type Memory struct {
-	countMap map[string]int
-	mut      *sync.RWMutex
+	countMap        map[string]int
+	lastRequestTime map[string]time.Time
+	cooldown        time.Duration
+	mut             *sync.RWMutex
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory() *Memory {
+func NewMemory(requestCooldown time.Duration) *Memory {
 	lock := new(sync.RWMutex)
+
 	return &Memory{
-		countMap: make(map[string]int),
-		mut:      lock,
+		countMap:        make(map[string]int),
+		lastRequestTime: make(map[string]time.Time),
+		cooldown:        requestCooldown,
+		mut:             lock,
 	}
 }
 
@@ -87,4 +100,38 @@ func (r *Memory) Current() (*Counts, error) {
 	cts := NewCounts()
 	cts.Counts = r.countMap
 	return cts, nil
+}
+
+func (r *Memory) Status(host string) (int, time.Time) {
+	r.mut.RLock()
+	defer r.mut.RUnlock()
+	count, ok := r.countMap[host]
+	if !ok {
+		return 0, time.Time{}
+	}
+	return count, r.lastRequestTime[host]
+}
+
+func (r *Memory) SetLastRequestTime(host string, time time.Time) {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+	r.lastRequestTime[host] = time
+}
+
+func (r *Memory) GetCooldown() time.Duration {
+	return r.cooldown
+}
+
+func (r *Memory) EnforceCooldown(delay time.Duration) {
+	for {
+		time.Sleep(delay)
+		r.mut.Lock()
+		for host := range r.countMap {
+			// set the queue to 0 if the last request was more than the cooldown period
+			if time.Since(r.lastRequestTime[host]) > r.cooldown {
+				r.countMap[host] = 0
+			}
+		}
+		r.mut.Unlock()
+	}
 }

@@ -83,8 +83,9 @@ func main() {
 
 	lggr.Info("Interceptor starting")
 
-	q := queue.NewMemory()
+	q := queue.NewMemory(servingCfg.RequestQueueCooldown)
 	routingTable := routing.NewTable()
+	go q.EnforceCooldown(servingCfg.RequestQueueCooldownEnforcerInterval)
 
 	// Create the informer of ConfigMap resource,
 	// the resynchronization period of the informer should be not less than 1s,

@@ -26,6 +26,13 @@ type Serving struct {
 	//
 	// This is the interval (in milliseconds) representing how often to do a fetch
 	DeploymentCachePollIntervalMS int `envconfig:"KEDA_HTTP_DEPLOYMENT_CACHE_POLLING_INTERVAL_MS" default:"250"`
+
+	// This indicates how long the interceptor should wait before setting the queue size to 0
+	// It's recommended to set this to a value to the same value as downstream gateway's timeout
+	RequestQueueCooldown time.Duration `envconfig:"KEDA_HTTP_REQUEST_QUEUE_COOLDOWN" default:"100s"`
+
+	// This is the interval at which the interceptor should enforce the cooldown
+	RequestQueueCooldownEnforcerInterval time.Duration `envconfig:"KEDA_HTTP_REQUEST_QUEUE_COOLDOWN_ENFORCER_INTERVAL" default:"1s"`
 }
 
 // Parse parses standard configs using envconfig and returns a pointer to the
