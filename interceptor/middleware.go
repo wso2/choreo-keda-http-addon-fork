@@ -60,7 +60,7 @@ func countMiddleware(
 			log.Printf("Error incrementing queue for %q (%s)", r.RequestURI, err)
 		}
 		defer func() {
-			if q.Count(host) == 1 {
+			if q.ShouldPostponeResize() && q.Count(host) == 1 {
 				q.PostponeResize(host, time.Now().Add(q.PostponeDuration()))
 				lggr.Info("postponing resize", "host", host)
 				return

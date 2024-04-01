@@ -18,6 +18,8 @@ type CountReader interface {
 	Count(host string) int
 
 	PostponeDuration() time.Duration
+
+	ShouldPostponeResize() bool
 }
 
 // QueueCounter represents a virtual HTTP queue, possibly distributed across
@@ -54,17 +56,19 @@ type Memory struct {
 	countMap         map[string]int
 	postponedResizes map[string]time.Time
 	postponeDuration time.Duration
+	shouldPostpone   bool
 	mut              *sync.RWMutex
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory(postponeDuration time.Duration) *Memory {
+func NewMemory(postponeDuration time.Duration, shouldPostpone bool) *Memory {
 	lock := new(sync.RWMutex)
 
 	return &Memory{
 		countMap:         make(map[string]int),
 		postponedResizes: make(map[string]time.Time),
 		postponeDuration: postponeDuration,
+		shouldPostpone:   shouldPostpone,
 		mut:              lock,
 	}
 }
@@ -139,4 +143,8 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 		}
 		r.mut.Unlock()
 	}
+}
+
+func (r *Memory) ShouldPostponeResize() bool {
+	return r.shouldPostpone
 }

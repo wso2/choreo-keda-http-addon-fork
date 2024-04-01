@@ -19,6 +19,11 @@ type FakeCounter struct {
 	ResizeTimeout time.Duration
 }
 
+// ShouldPostponeResize implements Counter.
+func (f *FakeCounter) ShouldPostponeResize() bool {
+	panic("unimplemented")
+}
+
 // Count implements Counter.
 func (f *FakeCounter) Count(host string) int {
 	panic("unimplemented")
@@ -91,6 +96,11 @@ var _ CountReader = &FakeCountReader{}
 type FakeCountReader struct {
 	current int
 	err     error
+}
+
+// ShouldPostponeResize implements CountReader.
+func (f *FakeCountReader) ShouldPostponeResize() bool {
+	panic("unimplemented")
 }
 
 // Count implements CountReader.

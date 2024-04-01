@@ -83,7 +83,7 @@ func main() {
 
 	lggr.Info("Interceptor starting")
 
-	q := queue.NewMemory(servingCfg.RequestQueueCooldown)
+	q := queue.NewMemory(servingCfg.RequestQueueCooldown, servingCfg.EnableRequestQueueCooldown)
 	routingTable := routing.NewTable()
 	go q.ProcessPostponedResizes(servingCfg.RequestQueueCooldownEnforcerInterval)
 
