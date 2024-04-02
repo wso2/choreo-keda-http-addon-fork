@@ -16,24 +16,26 @@ import (
 )
 
 type forwardingConfig struct {
-	waitTimeout           time.Duration
-	respHeaderTimeout     time.Duration
-	forceAttemptHTTP2     bool
-	maxIdleConns          int
-	idleConnTimeout       time.Duration
-	tlsHandshakeTimeout   time.Duration
-	expectContinueTimeout time.Duration
+	waitTimeout             time.Duration
+	respHeaderTimeout       time.Duration
+	forceAttemptHTTP2       bool
+	maxIdleConns            int
+	idleConnTimeout         time.Duration
+	tlsHandshakeTimeout     time.Duration
+	expectContinueTimeout   time.Duration
+	serviceUnavailableRetry int
 }
 
 func newForwardingConfigFromTimeouts(t *config.Timeouts) forwardingConfig {
 	return forwardingConfig{
-		waitTimeout:           t.DeploymentReplicas,
-		respHeaderTimeout:     t.ResponseHeader,
-		forceAttemptHTTP2:     t.ForceHTTP2,
-		maxIdleConns:          t.MaxIdleConns,
-		idleConnTimeout:       t.IdleConnTimeout,
-		tlsHandshakeTimeout:   t.TLSHandshakeTimeout,
-		expectContinueTimeout: t.ExpectContinueTimeout,
+		waitTimeout:             t.DeploymentReplicas,
+		respHeaderTimeout:       t.ResponseHeader,
+		forceAttemptHTTP2:       t.ForceHTTP2,
+		maxIdleConns:            t.MaxIdleConns,
+		idleConnTimeout:         t.IdleConnTimeout,
+		tlsHandshakeTimeout:     t.TLSHandshakeTimeout,
+		expectContinueTimeout:   t.ExpectContinueTimeout,
+		serviceUnavailableRetry: t.ServiceUnavailableRetry,
 	}
 }
 
@@ -101,7 +103,7 @@ func newForwardingHandler(
 			//targetSvcName := routingTarget.Service
 			targetHost := fmt.Sprintf("http://%s.%s:%s", routingTarget.Service, routingTarget.Namespace, targetPort)
 			if targetURL, err = url.Parse(targetHost); err != nil {
-				lggr.Error(err, fmt.Sprintf("forwarding failed"))
+				lggr.Error(err, "forwarding failed")
 				w.WriteHeader(500)
 				if _, err := w.Write([]byte(fmt.Sprintf("error parsing host:port: %s to URL", targetHost))); err != nil {
 					lggr.Error(err, "could not write error response to client")
@@ -126,6 +128,6 @@ func newForwardingHandler(
 		}
 		w.Header().Add("X-KEDA-HTTP-Cold-Start", isColdStart)
 		lggr.Info("dispatching request.", "host", host, "target_url", targetURL, "isColdStart", isColdStart)
-		forwardRequest(lggr, w, r, roundTripper, targetURL)
+		forwardRequest(lggr, w, r, roundTripper, targetURL, fwdCfg.serviceUnavailableRetry)
 	})
 }

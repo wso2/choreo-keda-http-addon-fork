@@ -90,6 +90,7 @@ func TestForwarderSuccess(t *testing.T) {
 		req,
 		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
 		forwardURL,
+		2,
 	)
 
 	r.True(
@@ -138,6 +139,7 @@ func TestForwarderHeaderTimeout(t *testing.T) {
 		req,
 		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
 		originURL,
+		2,
 	)
 
 	forwardedRequests := hdl.IncomingRequests()
@@ -191,6 +193,7 @@ func TestForwarderWaitsForSlowOrigin(t *testing.T) {
 		req,
 		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
 		originURL,
+		2,
 	)
 	// wait for the goroutine above to finish, with a little cusion
 	ensureSignalBeforeTimeout(originWaitCh, originDelay*2)
@@ -219,6 +222,7 @@ func TestForwarderConnectionRetryAndTimeout(t *testing.T) {
 		req,
 		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
 		noSuchURL,
+		2,
 	)
 	elapsed := time.Since(start)
 	log.Printf("forwardRequest took %s", elapsed)
@@ -276,6 +280,7 @@ func TestForwardRequestRedirectAndHeaders(t *testing.T) {
 		req,
 		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
 		srvURL,
+		2,
 	)
 	r.Equal(301, res.Code)
 	r.Equal("abc123.com", res.Header().Get("Location"))
