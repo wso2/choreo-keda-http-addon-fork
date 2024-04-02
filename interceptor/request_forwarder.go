@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"strings"
@@ -30,33 +31,23 @@ func forwardRequest(
 		req.Header.Del("X-Forwarded-For")
 	}
 
-	var lastResponse *http.Response
-	proxy.ModifyResponse = func(resp *http.Response) error {
-		lastResponse = resp
-		return nil
-	}
-
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		w.WriteHeader(502)
-		// note: we can only use the '%w' directive inside of fmt.Errorf,
-		// not Sprintf or anything similar. this means we have to create the
-		// failure string in this slightly convoluted way.
 		errMsg := fmt.Errorf("error on backend (%w)", err).Error()
 		if _, err := w.Write([]byte(errMsg)); err != nil {
-			lggr.Error(
-				err,
-				"could not write error response to client",
-			)
+			lggr.Error(err, "could not write error response to client")
 		}
 	}
 
 	for i := 0; i < maxRetries; i++ {
-		proxy.ServeHTTP(w, r)
+		responseRecorder := httptest.NewRecorder()
+		proxy.ServeHTTP(responseRecorder, r)
+		response := responseRecorder.Result()
 
-		if lastResponse != nil && lastResponse.StatusCode == http.StatusServiceUnavailable {
-			body, _ := io.ReadAll(lastResponse.Body)
-			lastResponse.Body.Close()
-
+		if response.StatusCode == http.StatusServiceUnavailable {
+			body, _ := io.ReadAll(response.Body)
+			response.Body.Close()
+			lggr.Info("Received 503 from upstream", "body", string(body))
 			if strings.HasPrefix(string(body), "upstream connect error or disconnect/reset before headers") {
 				if i < maxRetries-1 {
 					lggr.Info("Retrying request due to upstream error", "attempt", i+1)
@@ -66,10 +57,13 @@ func forwardRequest(
 					lggr.Error(nil, "Max retries reached, returning last response")
 				}
 			}
-			w.WriteHeader(lastResponse.StatusCode)
+			w.WriteHeader(response.StatusCode)
 			w.Write(body)
 			return
 		}
+
+		// If the response is not 503, write it and return
+		response.Write(w)
 		return
 	}
 }
