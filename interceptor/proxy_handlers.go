@@ -72,6 +72,7 @@ func newForwardingHandler(
 			}
 			return
 		}
+		lggr := lggr.WithValues("host", host)
 		routingTarget, err := routingTable.Lookup(host)
 		if err != nil {
 			w.WriteHeader(404)
