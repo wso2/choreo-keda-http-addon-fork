@@ -1,13 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,35 +34,42 @@ func forwardRequest(
 		w.WriteHeader(502)
 		errMsg := fmt.Errorf("error on backend (%w)", err).Error()
 		if _, err := w.Write([]byte(errMsg)); err != nil {
-			lggr.Error(err, "could not write error response to client")
+			lggr.Error(
+				err,
+				"could not write error response to client",
+			)
 		}
 	}
 
-	for i := 0; i < maxRetries; i++ {
-		responseRecorder := httptest.NewRecorder()
-		proxy.ServeHTTP(responseRecorder, r)
-		response := responseRecorder.Result()
-
-		if response.StatusCode == http.StatusServiceUnavailable {
-			body, _ := io.ReadAll(response.Body)
-			response.Body.Close()
-			lggr.Info("Received 503 from upstream", "body", string(body))
-			if strings.HasPrefix(string(body), "upstream connect error or disconnect/reset before headers") {
-				if i < maxRetries-1 {
-					lggr.Info("Retrying request due to upstream error", "attempt", i+1)
-					time.Sleep(time.Second * time.Duration(2*(i+1)))
-					continue
-				} else {
-					lggr.Error(nil, "Max retries reached, returning last response")
-				}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		if resp.StatusCode == http.StatusServiceUnavailable {
+			buf := new(bytes.Buffer)
+			_, err := buf.ReadFrom(resp.Body)
+			if err != nil {
+				return err
 			}
-			w.WriteHeader(response.StatusCode)
-			w.Write(body)
-			return
-		}
+			resp.Body.Close()
+			resp.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 
-		// If the response is not 503, write it and return
-		response.Write(w)
-		return
+			// Check if the response body starts with "upstream connect error or disconnect/reset before headers"
+			if bytes.HasPrefix(buf.Bytes(), []byte("upstream connect error or disconnect/reset before headers")) {
+				retries := 0
+				for retries < maxRetries {
+					lggr.Info("Service unavailable, retrying", "attempt", retries+1)
+					time.Sleep(time.Second * time.Duration(2*(retries+1)))
+
+					if resp, err = http.DefaultTransport.RoundTrip(resp.Request); err == nil {
+						return nil
+					}
+
+					retries++
+				}
+				lggr.Error(nil, "Max retries reached, returning last response")
+				return nil
+			}
+		}
+		return nil
 	}
+
+	proxy.ServeHTTP(w, r)
 }
