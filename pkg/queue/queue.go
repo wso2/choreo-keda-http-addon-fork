@@ -135,8 +135,8 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 		r.mut.Lock()
 		for host, resizeTime := range r.postponedResizes {
 			if resizeTime.Before(time.Now()) {
-				delete(r.postponedResizes, host)
 				if r.countMap[host] == 1 {
+					delete(r.postponedResizes, host)
 					r.countMap[host] = 0
 				}
 			}
