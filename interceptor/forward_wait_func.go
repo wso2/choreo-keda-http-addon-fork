@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -57,8 +56,6 @@ func newDeployReplicasForwardWaitFunc(
 						"Didn't get a deployment back in event",
 					)
 				} else if deploymentCanServe(*deployment) {
-					// waiting 2s after healthcheck passes
-					time.Sleep(2000)
 					return 0, nil
 				}
 			case <-ctx.Done():
