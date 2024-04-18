@@ -34,7 +34,7 @@ func TestCounts(t *testing.T) {
 		"host4": 809,
 	}
 
-	q := queue.NewMemory(time.Second, false)
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts {
 		r.NoError(q.Resize(host, count))
 	}
@@ -115,7 +115,7 @@ func TestFetchAndSaveCounts(t *testing.T) {
 		"host2": 234,
 		"host3": 345,
 	}
-	q := queue.NewMemory(time.Second, false)
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts.Counts {
 		r.NoError(q.Resize(host, count))
 	}
@@ -176,7 +176,7 @@ func TestFetchCounts(t *testing.T) {
 		"host2": 234,
 		"host3": 345,
 	}
-	q := queue.NewMemory(time.Second, false)
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts.Counts {
 		r.NoError(q.Resize(host, count))
 	}

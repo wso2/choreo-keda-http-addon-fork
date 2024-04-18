@@ -48,9 +48,14 @@ func forwardRequest(
 			}
 			resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+
 			// Check if the response body starts with "upstream connect error or disconnect/reset before headers"
 			if bytes.HasPrefix(buf.Bytes(), []byte("upstream connect error or disconnect/reset before headers")) {
-				return retryRequest(lggr, resp.Request, maxRetries, 0)
+				updatedResp, err := retryRequest(lggr, resp, maxRetries, 0)
+				if err != nil {
+					return err
+				}
+				*resp = *updatedResp
 			}
 		}
 		return nil
@@ -58,29 +63,34 @@ func forwardRequest(
 	proxy.ServeHTTP(w, r)
 }
 
-func retryRequest(lggr logr.Logger, req *http.Request, maxRetries, attempt int) error {
+func retryRequest(lggr logr.Logger, resp *http.Response, maxRetries, attempt int) (*http.Response, error) {
 	if attempt >= maxRetries {
 		lggr.Error(nil, "Max retries reached, returning last response")
-		return nil
+		return resp, nil
 	}
+
 	lggr.Info("Service unavailable, retrying", "attempt", attempt+1)
 	time.Sleep(time.Second * time.Duration(2*(attempt+1)))
-	resp, err := http.DefaultTransport.RoundTrip(req)
+
+	newResp, err := http.DefaultTransport.RoundTrip(resp.Request)
 	if err != nil {
-		return retryRequest(lggr, req, maxRetries, attempt+1)
+		return retryRequest(lggr, resp, maxRetries, attempt+1)
 	}
-	if resp.StatusCode == http.StatusServiceUnavailable {
+
+	if newResp.StatusCode == http.StatusServiceUnavailable {
 		buf := new(bytes.Buffer)
-		_, err := buf.ReadFrom(resp.Body)
+		_, err := buf.ReadFrom(newResp.Body)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		resp.Body.Close()
-		resp.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+		newResp.Body.Close()
+		newResp.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+
 		// Check if the response body starts with "upstream connect error or disconnect/reset before headers"
 		if bytes.HasPrefix(buf.Bytes(), []byte("upstream connect error or disconnect/reset before headers")) {
-			return retryRequest(lggr, req, maxRetries, attempt+1)
+			return retryRequest(lggr, newResp, maxRetries, attempt+1)
 		}
 	}
-	return nil
+
+	return newResp, nil
 }

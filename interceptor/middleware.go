@@ -61,8 +61,8 @@ func countMiddleware(
 		}
 		defer func() {
 			if q.ShouldPostponeResize() && q.Count(host) == 1 {
-				q.PostponeResize(host, time.Now().Add(q.PostponeDuration()))
 				lggr.Info("postponing resize", "host", host)
+				q.PostponeResize(host, time.Now().Add(q.PostponeDuration()))
 				return
 			}
 
