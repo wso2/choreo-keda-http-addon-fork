@@ -3,6 +3,8 @@ package queue
 import (
 	"sync"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 // CountReader represents the size of a virtual HTTP queue, possibly
@@ -58,10 +60,11 @@ type Memory struct {
 	postponeDuration time.Duration
 	shouldPostpone   bool
 	mut              *sync.RWMutex
+	logger           logr.Logger
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory(postponeDuration time.Duration, shouldPostpone bool) *Memory {
+func NewMemory(postponeDuration time.Duration, shouldPostpone bool, logger logr.Logger) *Memory {
 	lock := new(sync.RWMutex)
 
 	return &Memory{
@@ -70,6 +73,7 @@ func NewMemory(postponeDuration time.Duration, shouldPostpone bool) *Memory {
 		postponeDuration: postponeDuration,
 		shouldPostpone:   shouldPostpone,
 		mut:              lock,
+		logger:           logger,
 	}
 }
 
@@ -110,8 +114,8 @@ func (r *Memory) Current() (*Counts, error) {
 }
 
 func (r *Memory) Count(host string) int {
-	r.mut.RLock()
-	defer r.mut.RUnlock()
+	r.mut.Lock()
+	defer r.mut.Lock()
 	count, ok := r.countMap[host]
 	if !ok {
 		return 0
@@ -135,9 +139,10 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 		r.mut.Lock()
 		for host, resizeTime := range r.postponedResizes {
 			if resizeTime.Before(time.Now()) {
+				r.logger.Info("processing postponed resize", "host", host, "resizeTime", resizeTime, "count", r.countMap[host])
 				if r.countMap[host] == 1 {
-					delete(r.postponedResizes, host)
 					r.countMap[host] = 0
+					delete(r.postponedResizes, host)
 				}
 			}
 		}
