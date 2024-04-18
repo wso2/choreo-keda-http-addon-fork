@@ -115,7 +115,7 @@ func (r *Memory) Current() (*Counts, error) {
 
 func (r *Memory) Count(host string) int {
 	r.mut.Lock()
-	defer r.mut.Lock()
+	defer r.mut.Unlock()
 	count, ok := r.countMap[host]
 	if !ok {
 		return 0
