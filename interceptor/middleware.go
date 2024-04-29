@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -13,29 +14,70 @@ import (
 )
 
 func getHost(r *http.Request) (string, error) {
+	remoteIP := r.RemoteAddr
+	if remoteIP == "" {
+		return "", fmt.Errorf("remote address not found")
+	}
+	// removing port if exists
+	if i := strings.Index(remoteIP, ":"); i != -1 {
+		remoteIP = remoteIP[:i]
+	}
+
 	host := r.Host
 	if host != "" {
-		// removing port if exists
-		if i := strings.Index(host, ":"); i != -1 {
-			host = host[:i]
-		}
-		// handling the case where host contains only the service name (without the namespace)
-		if i := strings.Index(host, "."); i == -1 {
-			choreoProjectNs := r.Header.Get("X-Choreo-Project-Ns")
-			if choreoProjectNs == "" {
-				return "", fmt.Errorf("X-Choreo-Project-Ns header was not found in the service to service request")
-			}
-			host = host + "." + choreoProjectNs
-		}
-		// removing svc.cluster.local
-		// check for suffix svc.cluster.local in host string
-		if strings.HasSuffix(host, ".svc.cluster.local") {
-			// remove suffix from the host
-			host = strings.TrimSuffix(host, ".svc.cluster.local")
-		}
+		return "", fmt.Errorf("host not found")
+	}
+	// removing port if exists
+	if i := strings.Index(host, ":"); i != -1 {
+		host = host[:i]
+	}
+
+	// ReverseDNS lookup on the remote IP
+	names, err := net.LookupAddr(remoteIP)
+	if err != nil {
+		return "", fmt.Errorf("error looking up address %q: %s", remoteIP, err)
+	}
+	if len(names) == 0 {
+		return "", fmt.Errorf("no names found for address %q", remoteIP)
+	}
+	remoteDNS := names[0]
+	_, remoteNs := extractServiceInfo(remoteDNS)
+	if remoteNs == "" {
+		return "", fmt.Errorf("namespace not found in %q", remoteDNS)
+	}
+
+	// Extracting service name and namespace from the host header
+	destService, destNs := extractServiceInfo(host)
+
+	// If the caller is from user namespace or
+	// the destination namespace is not provided in the host header
+	// then the destination namespace is the same as the caller namespace
+	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
+		host = fmt.Sprintf("%s.%s.svc.cluster.local", destService, remoteNs)
 		return host, nil
 	}
-	return "", fmt.Errorf("host not found")
+
+	host = fmt.Sprintf("%s.%s.svc.cluster.local", destService, destNs)
+	return host, nil
+}
+
+// $SVC.$NAMESPACE.svc.cluster.local
+// $POD.$NAMESPACE.pod.cluster.local
+func extractServiceInfo(serviceURL string) (string, string) {
+	parts := strings.Split(serviceURL, ".")
+
+	if len(parts) >= 2 {
+		serviceName := parts[0]
+		namespace := parts[1]
+		return serviceName, namespace
+	}
+
+	if len(parts) == 1 {
+		serviceName := parts[0]
+		return serviceName, ""
+	}
+
+	return "", ""
 }
 
 // countMiddleware adds 1 to the given queue counter, executes next
