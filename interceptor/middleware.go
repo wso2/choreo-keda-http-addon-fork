@@ -53,9 +53,9 @@ func getHost(r *http.Request) (string, error) {
 	// the destination namespace is not provided in the host header
 	// then the destination namespace is the same as the caller namespace
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
-		host = fmt.Sprintf("%s.%s.svc.cluster.local", destService, remoteNs)
+		host = fmt.Sprintf("%s.%s", destService, remoteNs)
 	} else {
-		host = fmt.Sprintf("%s.%s.svc.cluster.local", destService, destNs)
+		host = fmt.Sprintf("%s.%s", destService, destNs)
 	}
 
 	return host, nil
