@@ -9,12 +9,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/patrickmn/go-cache"
 
 	"github.com/kedacore/http-add-on/pkg/queue"
 )
-
-var hostCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func getHost(r *http.Request) (string, error) {
 	remoteIP := r.RemoteAddr
@@ -33,11 +30,6 @@ func getHost(r *http.Request) (string, error) {
 	// removing port if exists
 	if i := strings.Index(host, ":"); i != -1 {
 		host = host[:i]
-	}
-
-	// Check if the host is already in the cache
-	if cachedHost, found := hostCache.Get(remoteIP + r.Host); found {
-		return cachedHost.(string), nil
 	}
 
 	// ReverseDNS lookup on the remote IP
@@ -65,9 +57,6 @@ func getHost(r *http.Request) (string, error) {
 	} else {
 		host = fmt.Sprintf("%s.%s.svc.cluster.local", destService, destNs)
 	}
-
-	// Cache the host with an expiration time of 5 minutes
-	hostCache.Set(remoteIP+r.Host, host, cache.DefaultExpiration)
 
 	return host, nil
 }
