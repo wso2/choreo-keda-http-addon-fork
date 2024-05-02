@@ -41,7 +41,7 @@ func getHost(r *http.Request) (string, error) {
 		return "", fmt.Errorf("no names found for address %q", remoteIP)
 	}
 	remoteDNS := names[0]
-	_, remoteNs := extractServiceInfo(remoteDNS)
+	_, _, remoteNs := extractPodInfo(remoteDNS)
 	if remoteNs == "" {
 		return "", fmt.Errorf("namespace not found in %q", remoteDNS)
 	}
@@ -62,7 +62,6 @@ func getHost(r *http.Request) (string, error) {
 }
 
 // $SVC.$NAMESPACE.svc.cluster.local
-// $POD.$NAMESPACE.pod.cluster.local
 func extractServiceInfo(serviceURL string) (string, string) {
 	parts := strings.Split(serviceURL, ".")
 
@@ -78,6 +77,26 @@ func extractServiceInfo(serviceURL string) (string, string) {
 	}
 
 	return "", ""
+}
+
+// $POD_IP.$DEPLOYMENT_NAME.$NAMESPACE.svc.cluster.local
+func extractPodInfo(podURL string) (string, string, string) {
+	parts := strings.Split(podURL, ".")
+
+	if len(parts) >= 3 {
+		podIP := parts[0]
+		deploymentName := parts[1]
+		namespace := parts[2]
+		return podIP, deploymentName, namespace
+	}
+
+	if len(parts) == 2 {
+		podIP := parts[0]
+		deploymentName := parts[1]
+		return podIP, deploymentName, ""
+	}
+
+	return "", "", ""
 }
 
 // countMiddleware adds 1 to the given queue counter, executes next
