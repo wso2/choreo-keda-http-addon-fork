@@ -137,14 +137,22 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 	for {
 		time.Sleep(sleep)
 		r.mut.Lock()
+		hostsToModify := make([]string, 0)
 		for host, resizeTime := range r.postponedResizes {
 			if resizeTime.Before(time.Now()) {
 				r.logger.Info("processing postponed resize", "host", host, "resizeTime", resizeTime, "count", r.countMap[host])
 				if r.countMap[host] == 1 {
-					r.countMap[host] = 0
-					delete(r.postponedResizes, host)
+					hostsToModify = append(hostsToModify, host)
 				}
 			}
+		}
+		r.mut.Unlock()
+
+		// Perform modifications outside of the lock
+		r.mut.Lock()
+		for _, host := range hostsToModify {
+			r.countMap[host] = 0
+			delete(r.postponedResizes, host)
 		}
 		r.mut.Unlock()
 	}
