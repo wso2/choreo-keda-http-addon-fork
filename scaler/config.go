@@ -33,7 +33,7 @@ type config struct {
 	// for the deployment informer to rsync the local cache.
 	DeploymentCacheRsyncPeriod time.Duration `envconfig:"KEDA_HTTP_SCALER_DEPLOYMENT_INFORMER_RSYNC_PERIOD" default:"60m"`
 	// QueueTickDuration is the duration between queue requests
-	QueueTickDuration time.Duration `envconfig:"KEDA_HTTP_QUEUE_TICK_DURATION" default:"500ms"`
+	QueueTickDuration time.Duration `envconfig:"KEDA_HTTP_QUEUE_TICK_DURATION" default:"1s"`
 }
 
 func mustParseConfig() *config {
