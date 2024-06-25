@@ -5,9 +5,6 @@ metadata:
 spec:
   replicas: 3
   template:
-    metadata:
-      annotations:
-        policy.cilium.io/proxy-visibility: <Ingress/8080/TCP/HTTP>,<Egress/8080/UDP/DNS>,<Egress/80/TCP/HTTP>
     spec:
       affinity:
         nodeAffinity:
