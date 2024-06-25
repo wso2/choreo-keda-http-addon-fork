@@ -49,7 +49,7 @@ func TestCounts(t *testing.T) {
 		},
 	}
 
-	q := queue.NewMemory()
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts {
 		q.EnsureKey(host, time.Minute, time.Second)
 		r.NoError(q.Increase(host, count.Concurrency))
@@ -133,7 +133,7 @@ func TestFetchAndSaveCounts(t *testing.T) {
 			RPS:         456,
 		},
 	}
-	q := queue.NewMemory()
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts.Counts {
 		q.EnsureKey(host, time.Minute, time.Second)
 		r.NoError(q.Increase(host, count.Concurrency))
@@ -203,7 +203,7 @@ func TestFetchCounts(t *testing.T) {
 			RPS:         456,
 		},
 	}
-	q := queue.NewMemory()
+	q := queue.NewMemory(time.Second, false, logr.Logger{})
 	for host, count := range counts.Counts {
 		q.EnsureKey(host, time.Minute, time.Second)
 		r.NoError(q.Increase(host, count.Concurrency))

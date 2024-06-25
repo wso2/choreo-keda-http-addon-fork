@@ -34,6 +34,9 @@ type Timeouts struct {
 	// after sending request headers if the server returned an Expect: 100-continue
 	// header
 	ExpectContinueTimeout time.Duration `envconfig:"KEDA_HTTP_EXPECT_CONTINUE_TIMEOUT" default:"1s"`
+	// ServiceUnavailableRetry is the number of times to retry a request if the
+	// backing service returns a 503 Service Unavailable
+	ServiceUnavailableRetry int `envconfig:"KEDA_SERVICE_UNAVAILABLE_RETRY" default:"3"`
 }
 
 // Backoff returns a wait.Backoff based on the timeouts in t

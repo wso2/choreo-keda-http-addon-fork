@@ -17,24 +17,26 @@ import (
 )
 
 type forwardingConfig struct {
-	waitTimeout           time.Duration
-	respHeaderTimeout     time.Duration
-	forceAttemptHTTP2     bool
-	maxIdleConns          int
-	idleConnTimeout       time.Duration
-	tlsHandshakeTimeout   time.Duration
-	expectContinueTimeout time.Duration
+	waitTimeout             time.Duration
+	respHeaderTimeout       time.Duration
+	forceAttemptHTTP2       bool
+	maxIdleConns            int
+	idleConnTimeout         time.Duration
+	tlsHandshakeTimeout     time.Duration
+	expectContinueTimeout   time.Duration
+	serviceUnavailableRetry int
 }
 
 func newForwardingConfigFromTimeouts(t *config.Timeouts) forwardingConfig {
 	return forwardingConfig{
-		waitTimeout:           t.WorkloadReplicas,
-		respHeaderTimeout:     t.ResponseHeader,
-		forceAttemptHTTP2:     t.ForceHTTP2,
-		maxIdleConns:          t.MaxIdleConns,
-		idleConnTimeout:       t.IdleConnTimeout,
-		tlsHandshakeTimeout:   t.TLSHandshakeTimeout,
-		expectContinueTimeout: t.ExpectContinueTimeout,
+		waitTimeout:             t.WorkloadReplicas,
+		respHeaderTimeout:       t.ResponseHeader,
+		forceAttemptHTTP2:       t.ForceHTTP2,
+		maxIdleConns:            t.MaxIdleConns,
+		idleConnTimeout:         t.IdleConnTimeout,
+		tlsHandshakeTimeout:     t.TLSHandshakeTimeout,
+		expectContinueTimeout:   t.ExpectContinueTimeout,
+		serviceUnavailableRetry: t.ServiceUnavailableRetry,
 	}
 }
 
@@ -83,7 +85,7 @@ func newForwardingHandler(
 		}
 		w.Header().Add("X-KEDA-HTTP-Cold-Start", strconv.FormatBool(isColdStart))
 
-		uh := handler.NewUpstream(roundTripper)
+		uh := handler.NewUpstream(roundTripper, fwdCfg.serviceUnavailableRetry)
 		uh.ServeHTTP(w, r)
 	})
 }
