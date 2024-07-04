@@ -93,8 +93,8 @@ func (r *HTTPScaledObjectReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if httpso.Spec.ScaleTargetRef.Name == "" ||
 		httpso.Spec.ScaleTargetRef.Kind == "" ||
 		httpso.Spec.ScaleTargetRef.APIVersion == "" {
-		logger.Info(".spec.scaleTargetRef.Deployment is deprecated, performing automated migration")
-		return ctrl.Result{}, r.migrateTargetRef(ctx, httpso)
+		logger.Info(".spec.scaleTargetRef.Deployment is deprecated, ignoring the scaleTarget")
+		return ctrl.Result{}, nil
 	}
 
 	// update status
