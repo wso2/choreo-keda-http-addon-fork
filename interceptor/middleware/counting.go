@@ -2,10 +2,8 @@ package middleware
 
 import (
 	"context"
-	"net/http"
-	"time"
-
 	"github.com/go-logr/logr"
+	"net/http"
 
 	"github.com/kedacore/http-add-on/interceptor/metrics"
 	"github.com/kedacore/http-add-on/pkg/k8s"
@@ -87,11 +85,6 @@ func (cm *Counting) inc(logger logr.Logger, key string) bool {
 }
 
 func (cm *Counting) dec(logger logr.Logger, key string) bool {
-	if cm.queueCounter.ShouldPostponeResize() && cm.queueCounter.Count(key) == 1 {
-		cm.queueCounter.PostponeResize(key, time.Now().Add(cm.queueCounter.PostponeDuration()))
-		logger.Info("postponed resizing queue", "key", key)
-		return false
-	}
 	if err := cm.queueCounter.Decrease(key, 1); err != nil {
 		logger.Error(err, "error decrementing queue counter", "key", key)
 
