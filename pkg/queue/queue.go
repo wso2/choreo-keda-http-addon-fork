@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 // CountReader represents the size of a virtual HTTP queue, possibly
@@ -15,6 +17,13 @@ type CountReader interface {
 	// Current returns the current count of pending requests
 	// for the given hostname
 	Current() (*Counts, error)
+	// Count returns the current count of pending requests for the
+	// given hostname
+	Count(host string) int
+	// PostponeDuration returns the duration to postpone the resize
+	PostponeDuration() time.Duration
+	// ShouldPostponeResize returns if the resize should be postponed
+	ShouldPostponeResize() bool
 }
 
 // QueueCounter represents a virtual HTTP queue, possibly distributed across
@@ -38,6 +47,10 @@ type Counter interface {
 	// associated counts from the queue. returns true if it existed,
 	// false otherwise.
 	RemoveKey(host string) bool
+	// PostponeResize sets the last request time for the given host
+	PostponeResize(host string, time time.Time)
+	// ProcessPostponedResizes processes the postponed resizes
+	ProcessPostponedResizes(sleep time.Duration)
 }
 
 // Memory implements Counter and CountReader
@@ -48,18 +61,26 @@ var _ CountReader = (*Memory)(nil)
 // holds the HTTP queue in memory only. Always use
 // NewMemory to create one of these.
 type Memory struct {
-	concurrentMap map[string]int
-	rpsMap        map[string]*RequestsBuckets
-	mut           *sync.RWMutex
+	concurrentMap    map[string]int
+	rpsMap           map[string]*RequestsBuckets
+	postponedResizes map[string]time.Time
+	postponeDuration time.Duration
+	shouldPostpone   bool
+	mut              *sync.RWMutex
+	logger           logr.Logger
 }
 
 // NewMemoryQueue creates a new empty in-memory queue
-func NewMemory() *Memory {
+func NewMemory(postponeDuration time.Duration, shouldPostpone bool, logger logr.Logger) *Memory {
 	lock := new(sync.RWMutex)
 	return &Memory{
-		concurrentMap: make(map[string]int),
-		rpsMap:        make(map[string]*RequestsBuckets),
-		mut:           lock,
+		concurrentMap:    make(map[string]int),
+		rpsMap:           make(map[string]*RequestsBuckets),
+		postponedResizes: make(map[string]time.Time),
+		postponeDuration: postponeDuration,
+		shouldPostpone:   shouldPostpone,
+		mut:              lock,
+		logger:           logger,
 	}
 }
 
@@ -131,4 +152,53 @@ func (r *Memory) Current() (*Counts, error) {
 		}
 	}
 	return cts, nil
+}
+
+func (r *Memory) Count(host string) int {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+	count, ok := r.concurrentMap[host]
+	if !ok {
+		return 0
+	}
+	return count
+}
+
+func (r *Memory) PostponeResize(host string, time time.Time) {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+	r.postponedResizes[host] = time
+}
+
+func (r *Memory) PostponeDuration() time.Duration {
+	return r.postponeDuration
+}
+
+func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
+	for {
+		time.Sleep(sleep)
+		r.mut.Lock()
+		hostsToModify := make([]string, 0)
+		for host, resizeTime := range r.postponedResizes {
+			if resizeTime.Before(time.Now()) {
+				r.logger.Info("processing postponed resize", "host", host, "resizeTime", resizeTime, "count", r.concurrentMap[host])
+				if r.concurrentMap[host] == 1 {
+					hostsToModify = append(hostsToModify, host)
+				}
+			}
+		}
+		r.mut.Unlock()
+
+		// Perform modifications outside of the lock
+		r.mut.Lock()
+		for _, host := range hostsToModify {
+			r.concurrentMap[host] = 0
+			delete(r.postponedResizes, host)
+		}
+		r.mut.Unlock()
+	}
+}
+
+func (r *Memory) ShouldPostponeResize() bool {
+	return r.shouldPostpone
 }
