@@ -43,6 +43,13 @@ type Serving struct {
 	TLSKeyPath string `envconfig:"KEDA_HTTP_PROXY_TLS_KEY_PATH" default:"/certs/tls.key"`
 	// TLSPort is the port that the server should serve on if TLS is enabled
 	TLSPort int `envconfig:"KEDA_HTTP_PROXY_TLS_PORT" default:"8443"`
+	// This indicates how long the interceptor should wait before setting the queue size to 0
+	// This prevents from KEDA asuming the service is not in use
+	RequestQueueCooldown time.Duration `envconfig:"KEDA_HTTP_REQUEST_QUEUE_COOLDOWN" default:"20s"`
+	// This is the interval at which the interceptor will check if the queue size should be set to 0
+	RequestQueueCooldownEnforcerInterval time.Duration `envconfig:"KEDA_HTTP_REQUEST_QUEUE_COOLDOWN_ENFORCER_INTERVAL" default:"5s"`
+	// Enable the hack to set the request queue size to 0 after a cooldown period
+	EnableRequestQueueCooldown bool `envconfig:"KEDA_HTTP_ENABLE_REQUEST_QUEUE_COOLDOWN" default:"false"`
 }
 
 // Parse parses standard configs using envconfig and returns a pointer to the

@@ -99,7 +99,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	queues := queue.NewMemory()
+	queues := queue.NewMemory(servingCfg.RequestQueueCooldown, servingCfg.EnableRequestQueueCooldown, ctrl.Log)
+	go queues.ProcessPostponedResizes(servingCfg.RequestQueueCooldownEnforcerInterval)
 
 	sharedInformerFactory := informers.NewSharedInformerFactory(httpCl, servingCfg.ConfigMapCacheRsyncPeriod)
 	routingTable, err := routing.NewTable(sharedInformerFactory, servingCfg.WatchNamespace, queues)

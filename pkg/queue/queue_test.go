@@ -4,12 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCurrent(t *testing.T) {
 	r := require.New(t)
-	memory := NewMemory()
+	memory := NewMemory(time.Second, false, logr.Logger{})
 	now := time.Now()
 	host := "host1"
 	memory.EnsureKey(host, time.Minute, time.Second)
