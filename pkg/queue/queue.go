@@ -144,7 +144,8 @@ func (r *Memory) Current() (*Counts, error) {
 	for key, concurrency := range r.concurrentMap {
 		rpsItem, ok := r.rpsMap[key]
 		if !ok {
-			return nil, fmt.Errorf(fmt.Sprintf("rps map doesn't contain the key '%s'", key))
+			r.logger.Error(fmt.Errorf(fmt.Sprintf("rps map doesn't contain the key '%s'", key)), "error getting rpsItem")
+			continue
 		}
 		cts.Counts[key] = Count{
 			Concurrency: concurrency,
@@ -192,7 +193,10 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 		// Perform modifications outside of the lock
 		r.mut.Lock()
 		for _, host := range hostsToModify {
-			r.concurrentMap[host] = 0
+			_, ok := r.concurrentMap[host]
+			if ok {
+				r.concurrentMap[host] = 0
+			}
 			delete(r.postponedResizes, host)
 		}
 		r.mut.Unlock()
