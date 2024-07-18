@@ -192,7 +192,10 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 		// Perform modifications outside of the lock
 		r.mut.Lock()
 		for _, host := range hostsToModify {
-			r.concurrentMap[host] = 0
+			_, ok := r.concurrentMap[host]
+			if ok {
+				r.concurrentMap[host] = 0
+			}
 			delete(r.postponedResizes, host)
 		}
 		r.mut.Unlock()
