@@ -18,7 +18,6 @@ package http
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -90,11 +89,10 @@ func (r *HTTPScaledObjectReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// TODO(jorturfer): delete this for v0.9.0
-	if httpso.Spec.ScaleTargetRef.Name == "" ||
-		httpso.Spec.ScaleTargetRef.Kind == "" ||
+	if httpso.Spec.ScaleTargetRef.Kind == "" ||
 		httpso.Spec.ScaleTargetRef.APIVersion == "" {
-		logger.Info(".spec.scaleTargetRef.Deployment is deprecated, ignoring the scaleTarget")
-		return ctrl.Result{}, nil
+		logger.Info(".spec.scaleTargetRef.Deployment is deprecated, automatically migrating to newer version")
+		return ctrl.Result{}, r.migrateTargetRef(ctx, httpso)
 	}
 
 	// update status
@@ -176,10 +174,6 @@ func (r *HTTPScaledObjectReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // TODO(jorturfer): delete this for v0.9.0
 func (r *HTTPScaledObjectReconciler) migrateTargetRef(ctx context.Context, httpso *httpv1alpha1.HTTPScaledObject) error {
-	if (httpso.Spec.ScaleTargetRef.Deployment != "") == (httpso.Spec.ScaleTargetRef.Name != "") {
-		return errors.New("exactly one of .spec.scaleTargetRef.deployment and .spec.scaleTargetRef.name must be set")
-	}
-
 	if httpso.Spec.ScaleTargetRef.Name == "" {
 		httpso.Spec.ScaleTargetRef.Name = httpso.Spec.ScaleTargetRef.Deployment
 	}
@@ -189,6 +183,8 @@ func (r *HTTPScaledObjectReconciler) migrateTargetRef(ctx context.Context, https
 	if httpso.Spec.ScaleTargetRef.APIVersion == "" {
 		httpso.Spec.ScaleTargetRef.APIVersion = appsv1.SchemeGroupVersion.Identifier()
 	}
+
+	httpso.Spec.Hosts = []string{fmt.Sprintf("%s.%s", httpso.Name, httpso.Namespace)}
 
 	httpso.Spec.ScaleTargetRef.Deployment = ""
 
