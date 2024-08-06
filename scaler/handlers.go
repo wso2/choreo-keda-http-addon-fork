@@ -108,10 +108,11 @@ func (e *impl) StreamIsActive(
 		case <-ticker.C:
 			active, err := e.IsActive(server.Context(), scaledObject)
 			if err != nil {
-				e.lggr.Error(
-					err,
-					"error getting active status in stream",
-				)
+				// TODO: (lahirude@wso2.com) Enable when the old ScaledObject cleanup is done.
+				// e.lggr.Error(
+				// 	err,
+				// 	"error getting active status in stream",
+				// )
 				return err
 			}
 			err = server.Send(&externalscaler.IsActiveResponse{
