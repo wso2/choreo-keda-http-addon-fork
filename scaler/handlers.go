@@ -73,7 +73,8 @@ func (e *impl) IsActive(
 		ScaledObjectRef: sor,
 	})
 	if err != nil {
-		lggr.Error(err, "GetMetrics failed", "scaledObjectRef", sor.String())
+		// TODO: (lahirude@wso2.com) Enable when the old ScaledObject cleanup is done.
+		// lggr.Error(err, "GetMetrics failed", "scaledObjectRef", sor.String())
 		return nil, err
 	}
 
@@ -208,13 +209,15 @@ func (e *impl) GetMetrics(
 			}
 		}
 		err := fmt.Errorf("unable to get HTTPScaledObject reference")
-		lggr.Error(err, "unable to get the linked HTTPScaledObject for ScaledObject", "name", sor.Name, "namespace", sor.Namespace)
+		// TODO: (lahirude@wso2.com) Enable when the old ScaledObject cleanup is done.
+		// lggr.Error(err, "unable to get the linked HTTPScaledObject for ScaledObject", "name", sor.Name, "namespace", sor.Namespace)
 		return nil, err
 	}
 
 	httpso, err := e.httpsoInformer.Lister().HTTPScaledObjects(sor.Namespace).Get(httpScaledObjectName)
 	if err != nil {
-		lggr.Error(err, "unable to get HTTPScaledObject", "name", httpScaledObjectName, "namespace", sor.Namespace)
+		// TODO: (lahirude@wso2.com) Enable when the old ScaledObject cleanup is done.
+		// lggr.Error(err, "unable to get HTTPScaledObject", "name", httpScaledObjectName, "namespace", sor.Namespace)
 		return nil, err
 	}
 
