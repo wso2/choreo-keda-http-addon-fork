@@ -40,6 +40,7 @@ func (uh *Upstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	stream := util.StreamFromContext(ctx)
 	if stream == nil {
+		logger.Error(errNilStream, "upstream stream is nil")
 		sh := NewStatic(http.StatusInternalServerError, errNilStream)
 		sh.ServeHTTP(w, r)
 
