@@ -40,7 +40,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key1 := routing.NewKeyFromRequest(r)
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
-	logger.Info("Before getHost key1:", key1)
+	logger.Info("Before getHost:", "key1", key1)
 	host, err := getHost(r)
 	if err != nil {
 		logger.Error(err, "Error getting host")
