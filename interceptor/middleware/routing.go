@@ -37,8 +37,13 @@ var _ http.Handler = (*Routing)(nil)
 
 func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = util.RequestWithLoggerWithName(r, "RoutingMiddleware")
+	key1 := routing.NewKeyFromRequest(r)
+	ctx := r.Context()
+	logger := util.LoggerFromContext(ctx)
+	logger.Info("Before getHost key1:", key1)
 	host, err := getHost(r)
 	if err != nil {
+		logger.Error(err, "Error getting host")
 		sh := handler.NewStatic(http.StatusNotFound, err)
 		sh.ServeHTTP(w, r)
 	}
@@ -49,7 +54,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rm.probeHandler.ServeHTTP(w, r)
 			return
 		}
-
+		logger.Error(fmt.Errorf("HTTPScaledObject not found"), "HTTPScaledObject not found")
 		sh := handler.NewStatic(http.StatusNotFound, nil)
 		sh.ServeHTTP(w, r)
 
@@ -59,6 +64,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	stream, err := rm.streamFromHTTPSO(httpso)
 	if err != nil {
+		logger.Error(err, "streamFromHTTPSO not found")
 		sh := handler.NewStatic(http.StatusInternalServerError, err)
 		sh.ServeHTTP(w, r)
 
