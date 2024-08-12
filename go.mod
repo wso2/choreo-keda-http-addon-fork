@@ -38,6 +38,7 @@ replace (
 	k8s.io/component-base => k8s.io/component-base v0.29.4
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/metrics => k8s.io/metrics v0.29.4
+	github.com/kedacore/http-add-on/pkg/routing => github.com/wso2/choreo-keda-http-addon-fork/pkg/routing v0.8.0
 )
 
 require (
