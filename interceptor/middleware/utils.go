@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func getHost(r *http.Request) (string, error) {
@@ -27,10 +28,22 @@ func getHost(r *http.Request) (string, error) {
 	}
 
 	// ReverseDNS lookup on the remote IP
-	names, err := net.LookupAddr(remoteIP)
+	var names []string
+	var err error
+	maxRetries := 3
+	retryDelay := 3 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		names, err = net.LookupAddr(remoteIP)
+		if err == nil && len(names) > 0 {
+			break
+		}
+		time.Sleep(retryDelay)
+	}
 	if err != nil {
 		return "", fmt.Errorf("error looking up address %q: %s", remoteIP, err)
 	}
+
 	if len(names) == 0 {
 		return "", fmt.Errorf("no names found for address %q", remoteIP)
 	}
