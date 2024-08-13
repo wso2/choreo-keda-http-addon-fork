@@ -52,6 +52,8 @@ func TestCountMiddleware(t *testing.T) {
 			_, err := wr.Write([]byte("OK"))
 			r.NoError(err)
 		}),
+		3,
+		5*time.Second,
 	)
 
 	ctx := context.Background()

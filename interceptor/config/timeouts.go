@@ -37,6 +37,10 @@ type Timeouts struct {
 	// ServiceUnavailableRetry is the number of times to retry a request if the
 	// backing service returns a 503 Service Unavailable
 	ServiceUnavailableRetry int `envconfig:"KEDA_SERVICE_UNAVAILABLE_RETRY" default:"3"`
+	// ReverseDNSLookupRetry is the number of times to retry a reverse DNS lookup
+	ReverseDNSLookupRetry int `envconfig:"KEDA_HTTP_REVERSE_DNS_LOOKUP_RETRY" default:"3"`
+	// ReverseDNSLookupRetryInterval is the interval between reverse DNS lookup retries
+	ReverseDNSLookupRetryInterval time.Duration `envconfig:"KEDA_HTTP_REVERSE_DNS_LOOKUP_RETRY_INTERVAL" default:"5s"`
 }
 
 // Backoff returns a wait.Backoff based on the timeouts in t

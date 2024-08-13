@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"time"
 
 	"github.com/kedacore/http-add-on/interceptor/handler"
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
@@ -18,18 +19,23 @@ var (
 )
 
 type Routing struct {
-	routingTable    routing.Table
-	probeHandler    http.Handler
-	upstreamHandler http.Handler
-	tlsEnabled      bool
+	routingTable            routing.Table
+	probeHandler            http.Handler
+	upstreamHandler         http.Handler
+	tlsEnabled              bool
+	reverseDNSRetry         int
+	reverseDNSRetryInterval time.Duration
 }
 
-func NewRouting(routingTable routing.Table, probeHandler http.Handler, upstreamHandler http.Handler, tlsEnabled bool) *Routing {
+func NewRouting(routingTable routing.Table, probeHandler http.Handler,
+	upstreamHandler http.Handler, tlsEnabled bool, reverseDNSRetry int, reverseDNSRetryInterval time.Duration) *Routing {
 	return &Routing{
-		routingTable:    routingTable,
-		probeHandler:    probeHandler,
-		upstreamHandler: upstreamHandler,
-		tlsEnabled:      tlsEnabled,
+		routingTable:            routingTable,
+		probeHandler:            probeHandler,
+		upstreamHandler:         upstreamHandler,
+		tlsEnabled:              tlsEnabled,
+		reverseDNSRetry:         reverseDNSRetry,
+		reverseDNSRetryInterval: reverseDNSRetryInterval,
 	}
 }
 
@@ -41,7 +47,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
 	logger.Info("Before getHost:", "key1", key1)
-	host, err := getHost(r)
+	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	if err != nil {
 		logger.Error(err, "Error getting host")
 		sh := handler.NewStatic(http.StatusNotFound, err)

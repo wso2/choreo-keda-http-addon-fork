@@ -309,6 +309,8 @@ func newHarness(
 		},
 		&tls.Config{}),
 		false,
+		3,
+		5*time.Second,
 	)
 
 	proxySrv, proxySrvURL, err := kedanet.StartTestServer(proxyHdl)

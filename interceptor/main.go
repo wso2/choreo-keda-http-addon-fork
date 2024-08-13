@@ -283,6 +283,8 @@ func runProxyServer(
 	upstreamHandler = middleware.NewCountingMiddleware(
 		q,
 		upstreamHandler,
+		timeouts.ReverseDNSLookupRetry,
+		timeouts.ReverseDNSLookupRetryInterval,
 	)
 
 	var rootHandler http.Handler
@@ -291,6 +293,8 @@ func runProxyServer(
 		probeHandler,
 		upstreamHandler,
 		tlsEnabled,
+		timeouts.ReverseDNSLookupRetry,
+		timeouts.ReverseDNSLookupRetryInterval,
 	)
 	rootHandler = middleware.NewLogging(
 		logger,
