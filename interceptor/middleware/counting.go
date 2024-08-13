@@ -14,14 +14,19 @@ import (
 )
 
 type Counting struct {
-	queueCounter    queue.Counter
-	upstreamHandler http.Handler
+	queueCounter            queue.Counter
+	upstreamHandler         http.Handler
+	reverseDNSRetry         int
+	reverseDNSRetryInterval time.Duration
 }
 
-func NewCountingMiddleware(queueCounter queue.Counter, upstreamHandler http.Handler) *Counting {
+func NewCountingMiddleware(queueCounter queue.Counter, upstreamHandler http.Handler,
+	reverseDNSRetry int, reverseDNSRetryInterval time.Duration) *Counting {
 	return &Counting{
-		queueCounter:    queueCounter,
-		upstreamHandler: upstreamHandler,
+		queueCounter:            queueCounter,
+		upstreamHandler:         upstreamHandler,
+		reverseDNSRetry:         reverseDNSRetry,
+		reverseDNSRetryInterval: reverseDNSRetryInterval,
 	}
 }
 
@@ -32,7 +37,7 @@ func (cm *Counting) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
 
-	_, err := getHost(r)
+	_, err := getHost(r, cm.reverseDNSRetry, cm.reverseDNSRetryInterval)
 	if err != nil {
 		logger.Error(err, "not forwarding request")
 		w.WriteHeader(400)

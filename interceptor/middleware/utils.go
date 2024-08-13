@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func getHost(r *http.Request) (string, error) {
+func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.Duration) (string, error) {
 	remoteIP := r.RemoteAddr
 	if remoteIP == "" {
 		return "", fmt.Errorf("remote address not found")
@@ -30,15 +30,13 @@ func getHost(r *http.Request) (string, error) {
 	// ReverseDNS lookup on the remote IP
 	var names []string
 	var err error
-	maxRetries := 3
-	retryDelay := 3 * time.Second
 
-	for i := 0; i < maxRetries; i++ {
+	for i := 0; i < reverseDNSRetry; i++ {
 		names, err = net.LookupAddr(remoteIP)
 		if err == nil && len(names) > 0 {
 			break
 		}
-		time.Sleep(retryDelay)
+		time.Sleep(reverseDNSRetryInternal)
 	}
 	if err != nil {
 		return "", fmt.Errorf("error looking up address %q: %s", remoteIP, err)

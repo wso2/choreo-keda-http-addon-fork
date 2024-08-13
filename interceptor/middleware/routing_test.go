@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,7 +24,7 @@ var _ = Describe("RoutingMiddleware", func() {
 			probeHandler.Handle("/probe", emptyHandler)
 			upstreamHandler.Handle("/upstream", emptyHandler)
 
-			rm := NewRouting(routingTable, probeHandler, upstreamHandler, false)
+			rm := NewRouting(routingTable, probeHandler, upstreamHandler, false, 3, 5*time.Second)
 			Expect(rm).NotTo(BeNil())
 			Expect(rm.routingTable).To(Equal(routingTable))
 			Expect(rm.probeHandler).To(Equal(probeHandler))
@@ -58,7 +59,7 @@ var _ = Describe("RoutingMiddleware", func() {
 			upstreamHandler = http.NewServeMux()
 			probeHandler = http.NewServeMux()
 			routingTable = routingtest.NewTable()
-			routingMiddleware = NewRouting(routingTable, probeHandler, upstreamHandler, false)
+			routingMiddleware = NewRouting(routingTable, probeHandler, upstreamHandler, false, 3, 5*time.Second)
 
 			w = httptest.NewRecorder()
 
