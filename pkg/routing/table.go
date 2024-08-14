@@ -94,10 +94,8 @@ func (t *table) refreshMemory(ctx context.Context) error {
 	}
 
 	for {
-		logger := util.LoggerFromContext(ctx)
 		m := t.newMemoryFromHTTPSOs()
 		t.memoryHolder.Set(m)
-		logger.Info("Table.refreshMemory() updated")
 		if err := t.memorySignaler.Wait(ctx); err != nil {
 			return err
 		}
@@ -126,20 +124,16 @@ func (t *table) Start(ctx context.Context) error {
 }
 
 func (t *table) Route(req *http.Request) *httpv1alpha1.HTTPScaledObject {
-	logger := util.LoggerFromContext(req.Context())
 	if req == nil {
-		logger.Error(errors.New("Table.Route() request is nil"), "request is nil")
 		return nil
 	}
 
 	tm := t.memoryHolder.Get()
 	if tm == nil {
-		logger.Error(errors.New("Table.Route()"), "table memory is nil")
 		return nil
 	}
 
 	key := NewKeyFromRequest(req)
-	logger.Info("Table.Route()", "key", key)
 	return tm.Route(key)
 }
 
