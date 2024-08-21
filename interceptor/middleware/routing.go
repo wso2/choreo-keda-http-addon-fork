@@ -46,6 +46,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
 	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
+	logger.Info("Routing", "host", host)
 	if err != nil {
 		sh := handler.NewStatic(http.StatusNotFound, err)
 		sh.ServeHTTP(w, r)
