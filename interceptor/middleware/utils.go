@@ -23,11 +23,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 		return "", fmt.Errorf("host not found")
 	}
 	// removing port if exists
-	hostPort := ""
 	if i := strings.Index(host, ":"); i != -1 {
 		host = host[:i]
-		hostPort = host[i:]
 	}
+	hostPort := r.URL.Port()
 
 	// ReverseDNS lookup on the remote IP
 	var names []string

@@ -45,6 +45,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = util.RequestWithLoggerWithName(r, "RoutingMiddleware")
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
+	logger.Info("Routing", "received host", r.Host)
 	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	logger.Info("Routing", "host", r.Host, "modifiedHost", host)
 	if err != nil {
@@ -53,6 +54,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Host = host
 	httpso := rm.routingTable.Route(r)
+	logger.Info("Routing", "httpso", httpso)
 	if httpso == nil {
 		if rm.isProbe(r) {
 			rm.probeHandler.ServeHTTP(w, r)
