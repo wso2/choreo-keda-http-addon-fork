@@ -23,8 +23,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 		return "", fmt.Errorf("host not found")
 	}
 	// removing port if exists
+	hostPort := ""
 	if i := strings.Index(host, ":"); i != -1 {
 		host = host[:i]
+		hostPort = host[i:]
 	}
 
 	// ReverseDNS lookup on the remote IP
@@ -58,9 +60,9 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	// the destination namespace is not provided in the host header
 	// then the destination namespace is the same as the caller namespace
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
-		host = fmt.Sprintf("%s.%s", destService, remoteNs)
+		host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
 	} else {
-		host = fmt.Sprintf("%s.%s", destService, destNs)
+		host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
 	}
 
 	return host, nil
