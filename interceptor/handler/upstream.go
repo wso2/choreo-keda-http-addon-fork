@@ -47,10 +47,12 @@ func (uh *Upstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpso := util.HTTPSOFromContext(ctx)
+	logger.Info("Upstream", "httpso", httpso.Spec.ScaleTargetRef.Service, "host", r.Host)
 	if i := strings.Index(r.Host, ":"); i != -1 {
 		// if the host header contains port, route to ( routingTarget.Service:port)
 		targetPort := r.Host[i+1:]
 		targetHost := fmt.Sprintf("http://%s.%s:%s", httpso.Spec.ScaleTargetRef.Service, httpso.GetNamespace(), targetPort)
+		logger.Info("Upstream", "targetPort", targetPort, "targetHost", targetHost)
 		var err error
 		if stream, err = url.Parse(targetHost); err != nil {
 			logger.Error(err, "forwarding failed")
@@ -61,6 +63,7 @@ func (uh *Upstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	logger.Info("Upstream", "stream", stream.String())
 
 	proxy := httputil.NewSingleHostReverseProxy(stream)
 	superDirector := proxy.Director
