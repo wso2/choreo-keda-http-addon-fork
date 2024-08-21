@@ -45,7 +45,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = util.RequestWithLoggerWithName(r, "RoutingMiddleware")
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
-	logger.Info("Routing", "received host", r.Host)
+	logger.Info("Routing", "received host", r.Host, "url", r.URL.String(), "port", r.URL.Port(), "RequestURI", r.RequestURI)
 	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	logger.Info("Routing", "host", r.Host, "modifiedHost", host)
 	if err != nil {

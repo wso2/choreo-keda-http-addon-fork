@@ -46,7 +46,7 @@ func (uh *Upstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpso := util.HTTPSOFromContext(ctx)
-	logger.Info("Upstream", "httpso", httpso.Spec.ScaleTargetRef.Service, "host", r.Host)
+	logger.Info("Upstream", "httpso", httpso.Spec.ScaleTargetRef.Service, "host", r.Host, "RequestURI", r.RequestURI, "URL", r.URL.String(), "port", r.URL.Port())
 	if r.URL.Port() != "" {
 		// if the host header contains port, route to ( routingTarget.Service:port)
 		targetPort := r.URL.Port()
