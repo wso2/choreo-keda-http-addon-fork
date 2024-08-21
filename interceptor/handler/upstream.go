@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -48,9 +47,9 @@ func (uh *Upstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	httpso := util.HTTPSOFromContext(ctx)
 	logger.Info("Upstream", "httpso", httpso.Spec.ScaleTargetRef.Service, "host", r.Host)
-	if i := strings.Index(r.Host, ":"); i != -1 {
+	if r.URL.Port() != "" {
 		// if the host header contains port, route to ( routingTarget.Service:port)
-		targetPort := r.Host[i+1:]
+		targetPort := r.URL.Port()
 		targetHost := fmt.Sprintf("http://%s.%s:%s", httpso.Spec.ScaleTargetRef.Service, httpso.GetNamespace(), targetPort)
 		logger.Info("Upstream", "targetPort", targetPort, "targetHost", targetHost)
 		var err error
