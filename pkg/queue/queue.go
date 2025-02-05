@@ -143,11 +143,15 @@ func (r *Memory) Current() (*Counts, error) {
 	for key, concurrency := range r.concurrentMap {
 		rpsItem, ok := r.rpsMap[key]
 		if !ok {
-			continue
-		}
-		cts.Counts[key] = Count{
-			Concurrency: concurrency,
-			RPS:         rpsItem.WindowAverage(time.Now()),
+			cts.Counts[key] = Count{
+				Concurrency: concurrency,
+				RPS:         0,
+			}
+		} else {
+			cts.Counts[key] = Count{
+				Concurrency: concurrency,
+				RPS:         rpsItem.WindowAverage(time.Now()),
+			}
 		}
 	}
 	return cts, nil
