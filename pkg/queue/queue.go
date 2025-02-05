@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -144,12 +143,15 @@ func (r *Memory) Current() (*Counts, error) {
 	for key, concurrency := range r.concurrentMap {
 		rpsItem, ok := r.rpsMap[key]
 		if !ok {
-			r.logger.Error(fmt.Errorf(fmt.Sprintf("rps map doesn't contain the key '%s'", key)), "error getting rpsItem")
-			continue
-		}
-		cts.Counts[key] = Count{
-			Concurrency: concurrency,
-			RPS:         rpsItem.WindowAverage(time.Now()),
+			cts.Counts[key] = Count{
+				Concurrency: concurrency,
+				RPS:         0,
+			}
+		} else {
+			cts.Counts[key] = Count{
+				Concurrency: concurrency,
+				RPS:         rpsItem.WindowAverage(time.Now()),
+			}
 		}
 	}
 	return cts, nil
@@ -188,10 +190,7 @@ func (r *Memory) ProcessPostponedResizes(sleep time.Duration) {
 				}
 			}
 		}
-		r.mut.Unlock()
 
-		// Perform modifications outside of the lock
-		r.mut.Lock()
 		for _, host := range hostsToModify {
 			_, ok := r.concurrentMap[host]
 			if ok {
