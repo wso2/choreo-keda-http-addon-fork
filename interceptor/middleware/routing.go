@@ -45,6 +45,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = util.RequestWithLoggerWithName(r, "RoutingMiddleware")
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
+	hostPort := getPort(r)
 	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	if err != nil {
 		sh := handler.NewStatic(http.StatusNotFound, err)
@@ -65,7 +66,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r = r.WithContext(util.ContextWithHTTPSO(r.Context(), httpso))
 
-	stream, err := rm.streamFromHTTPSO(httpso)
+	stream, err := rm.streamFromHTTPSO(httpso, hostPort)
 	if err != nil {
 		sh := handler.NewStatic(http.StatusInternalServerError, err)
 		sh.ServeHTTP(w, r)
@@ -77,7 +78,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rm.upstreamHandler.ServeHTTP(w, r)
 }
 
-func (rm *Routing) streamFromHTTPSO(httpso *httpv1alpha1.HTTPScaledObject) (*url.URL, error) {
+func (rm *Routing) streamFromHTTPSO(httpso *httpv1alpha1.HTTPScaledObject, hostPort *int32) (*url.URL, error) {
 	if rm.tlsEnabled {
 		return url.Parse(fmt.Sprintf(
 			"https://%s.%s:%d",
@@ -87,6 +88,14 @@ func (rm *Routing) streamFromHTTPSO(httpso *httpv1alpha1.HTTPScaledObject) (*url
 		))
 	}
 	//goland:noinspection HttpUrlsUsage
+	if hostPort != nil {
+		return url.Parse(fmt.Sprintf(
+			"http://%s.%s:%d",
+			httpso.Spec.ScaleTargetRef.Service,
+			httpso.GetNamespace(),
+			*hostPort,
+		))
+	}
 	return url.Parse(fmt.Sprintf(
 		"http://%s.%s:%d",
 		httpso.Spec.ScaleTargetRef.Service,
