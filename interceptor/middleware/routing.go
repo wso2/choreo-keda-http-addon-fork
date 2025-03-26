@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kedacore/http-add-on/interceptor/handler"
+	"github.com/kedacore/http-add-on/interceptor/metrics"
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
 	"github.com/kedacore/http-add-on/pkg/routing"
 	"github.com/kedacore/http-add-on/pkg/util"
@@ -45,12 +46,12 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = util.RequestWithLoggerWithName(r, "RoutingMiddleware")
 	ctx := r.Context()
 	logger := util.LoggerFromContext(ctx)
-	host, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
+	connInfo, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	if err != nil {
 		sh := handler.NewStatic(http.StatusNotFound, err)
 		sh.ServeHTTP(w, r)
 	}
-	r.Host = host
+	r.Host = connInfo.Host
 	httpso := rm.routingTable.Route(r)
 	if httpso == nil {
 		if rm.isProbe(r) {
@@ -74,7 +75,17 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	r = r.WithContext(util.ContextWithStream(r.Context(), stream))
 
+	startTime := time.Now()
 	rm.upstreamHandler.ServeHTTP(w, r)
+	mrw := w.(*responseWriter)
+	if mrw == nil {
+		mrw = newResponseWriter(w)
+	}
+	statusCode := mrw.statusCode
+	duration := time.Since(startTime)
+
+	metrics.RecordChoreoRequestCount(connInfo.SourceInfo, connInfo.DestInfo, statusCode)
+	metrics.RecordChoreoRequestDuration(connInfo.SourceInfo, connInfo.DestInfo, duration.Seconds())
 }
 
 func (rm *Routing) streamFromHTTPSO(httpso *httpv1alpha1.HTTPScaledObject) (*url.URL, error) {

@@ -13,6 +13,8 @@ const meterName = "keda-interceptor-proxy"
 type Collector interface {
 	RecordRequestCount(method string, path string, responseCode int, host string)
 	RecordPendingRequestCount(host string, value int64)
+	RecordChoreoRequestCount(source string, destination string, statusCode int)
+	RecordChoreoRequestDuration(source string, destination string, duration float64)
 }
 
 func NewMetricsCollectors(metricsConfig *config.Metrics) {
@@ -36,5 +38,17 @@ func RecordRequestCount(method string, path string, responseCode int, host strin
 func RecordPendingRequestCount(host string, value int64) {
 	for _, collector := range collectors {
 		collector.RecordPendingRequestCount(host, value)
+	}
+}
+
+func RecordChoreoRequestCount(source string, destination string, statusCode int) {
+	for _, collector := range collectors {
+		collector.RecordChoreoRequestCount(source, destination, statusCode)
+	}
+}
+
+func RecordChoreoRequestDuration(source string, destination string, duration float64) {
+	for _, collector := range collectors {
+		collector.RecordChoreoRequestDuration(source, destination, duration)
 	}
 }
