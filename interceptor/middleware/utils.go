@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -120,4 +121,23 @@ func extractPodInfo(podURL string) (string, string, string) {
 	}
 
 	return "", "", ""
+}
+
+// getPort returns the port from the request host header
+// if it exists
+func getPort(r *http.Request) *int32 {
+	host := r.Host
+	_, portStr, err := net.SplitHostPort(host)
+	if err != nil {
+		// If there's no explicit port, return nil
+		return nil
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil
+	}
+
+	portInt32 := int32(port)
+	return &portInt32
 }
