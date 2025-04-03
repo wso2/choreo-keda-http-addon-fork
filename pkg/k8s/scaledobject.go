@@ -6,6 +6,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
+	"github.com/kedacore/http-add-on/pkg/env"
 )
 
 const (
@@ -14,6 +15,8 @@ const (
 
 	ScalerAddressKey    = "scalerAddress"
 	HTTPScaledObjectKey = "httpScaledObject"
+
+	InitialCooldownPeriodKey = "initialCooldownPeriod"
 )
 
 // NewScaledObject creates a new ScaledObject in memory
@@ -45,10 +48,11 @@ func NewScaledObject(
 				Kind:       workloadRef.Kind,
 				Name:       workloadRef.Name,
 			},
-			PollingInterval: ptr.To[int32](soPollingInterval),
-			CooldownPeriod:  cooldownPeriod,
-			MinReplicaCount: minReplicas,
-			MaxReplicaCount: maxReplicas,
+			PollingInterval:       ptr.To[int32](soPollingInterval),
+			CooldownPeriod:        cooldownPeriod,
+			InitialCooldownPeriod: env.GetInt32Or(InitialCooldownPeriodKey, 300),
+			MinReplicaCount:       minReplicas,
+			MaxReplicaCount:       maxReplicas,
 			Advanced: &kedav1alpha1.AdvancedConfig{
 				RestoreToOriginalReplicaCount: true,
 			},

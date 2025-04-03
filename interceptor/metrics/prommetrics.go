@@ -18,6 +18,8 @@ type PrometheusMetrics struct {
 	meter                 api.Meter
 	requestCounter        api.Int64Counter
 	pendingRequestCounter api.Int64UpDownCounter
+	choreoRequestCounter  api.Int64Counter
+	choreoRequestDuration api.Float64Histogram
 }
 
 func NewPrometheusMetrics(options ...prometheus.Option) *PrometheusMetrics {
@@ -83,4 +85,29 @@ func (p *PrometheusMetrics) RecordPendingRequestCount(host string, value int64) 
 	)
 
 	p.pendingRequestCounter.Add(ctx, value, opt)
+}
+
+// FORMAT: hubble_http_requests_total{destination="dp-development-adeepakubecosttest-4247-1806815479/adeepakubecosttestservice-4136524348-dc8655587-qwgqr",source="dev-choreo-apim/choreo-connect-deployment-external-p1-85847c78f4-696ds",status="200"} 857
+func (p *PrometheusMetrics) RecordChoreoRequestCount(source string, destination string, statusCode int) {
+	ctx := context.Background()
+	opt := api.WithAttributeSet(
+		attribute.NewSet(
+			attribute.Key("source").String(source),
+			attribute.Key("destination").String(destination),
+			attribute.Key("code").Int(statusCode),
+		),
+	)
+	p.choreoRequestCounter.Add(ctx, 1, opt)
+}
+
+// FORMAT: hubble_http_request_duration_seconds_bucket{destination="dp-development-adeepakubecosttest-4247-1806815479/adeepakubecosttestservice-4136524348-dc8655587-qwgqr",source="dev-choreo-apim/choreo-connect-deployment-external-p1-85847c78f4-696ds",le="0.05"} 855
+func (p *PrometheusMetrics) RecordChoreoRequestDuration(source string, destination string, duration float64) {
+	ctx := context.Background()
+	opt := api.WithAttributeSet(
+		attribute.NewSet(
+			attribute.Key("source").String(source),
+			attribute.Key("destination").String(destination),
+		),
+	)
+	p.choreoRequestDuration.Record(ctx, duration, opt)
 }

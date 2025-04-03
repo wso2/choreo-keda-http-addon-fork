@@ -21,6 +21,8 @@ type OtelMetrics struct {
 	meter                 api.Meter
 	requestCounter        api.Int64Counter
 	pendingRequestCounter api.Int64UpDownCounter
+	choreoRequestCounter  api.Int64Counter
+	choreoRequestDuration api.Float64Histogram
 }
 
 func NewOtelMetrics(metricsConfig *config.Metrics, options ...metric.Option) *OtelMetrics {
@@ -112,4 +114,28 @@ func getHeaders(s string) map[string]string {
 	}
 
 	return m
+}
+
+func (om *OtelMetrics) RecordChoreoRequestCount(source string, destination string, statusCode int) {
+	ctx := context.Background()
+	opt := api.WithAttributeSet(
+		attribute.NewSet(
+			attribute.Key("source").String(source),
+			attribute.Key("destination").String(destination),
+			attribute.Key("code").Int(statusCode),
+		),
+	)
+	om.choreoRequestCounter.Add(ctx, 1, opt)
+}
+
+func (om *OtelMetrics) RecordChoreoRequestDuration(source string, destination string, duration float64) {
+	ctx := context.Background()
+	opt := api.WithAttributeSet(
+		attribute.NewSet(
+			attribute.Key("source").String(source),
+
+			attribute.Key("destination").String(destination),
+		),
+	)
+	om.choreoRequestDuration.Record(ctx, duration, opt)
 }

@@ -9,10 +9,19 @@ import (
 	"time"
 )
 
-func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.Duration) (string, error) {
+// ConnectionInfo holds information about the connection between source and destination services
+type ConnectionInfo struct {
+	Host       string // The formatted host string
+	SourceInfo string // Source pod in format "ns/pod-name"
+	DestInfo   string // Destination service in format "ns/service"
+}
+
+func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.Duration) (ConnectionInfo, error) {
+	var connInfo ConnectionInfo
+
 	remoteIP := r.RemoteAddr
 	if remoteIP == "" {
-		return "", fmt.Errorf("remote address not found")
+		return connInfo, fmt.Errorf("remote address not found")
 	}
 	// removing port if exists
 	if i := strings.Index(remoteIP, ":"); i != -1 {
@@ -21,7 +30,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 
 	host := r.Host
 	if host == "" {
-		return "", fmt.Errorf("host not found")
+		return connInfo, fmt.Errorf("host not found")
 	}
 	// removing port if exists
 	hostPort := ""
@@ -42,17 +51,20 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 		time.Sleep(reverseDNSRetryInternal)
 	}
 	if err != nil {
-		return "", fmt.Errorf("error looking up address %q: %s", remoteIP, err)
+		return connInfo, fmt.Errorf("error looking up address %q: %s", remoteIP, err)
 	}
 
 	if len(names) == 0 {
-		return "", fmt.Errorf("no names found for address %q", remoteIP)
+		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
 	remoteDNS := names[0]
-	_, _, remoteNs := extractPodInfo(remoteDNS)
+	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
 	if remoteNs == "" {
-		return "", fmt.Errorf("namespace not found in %q", remoteDNS)
+		return connInfo, fmt.Errorf("namespace not found in %q", remoteDNS)
 	}
+
+	// Source service in format "ns/pod-name"
+	connInfo.SourceInfo = fmt.Sprintf("%s/%s", remoteNs, remotePod)
 
 	// Extracting service name and namespace from the host header
 	destService, destNs := extractServiceInfo(host)
@@ -61,12 +73,16 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	// the destination namespace is not provided in the host header
 	// then the destination namespace is the same as the caller namespace
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
-		host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
+		destNs = remoteNs
+		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
 	} else {
-		host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
+		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
 	}
 
-	return host, nil
+	// Destination service in format "ns/service"
+	connInfo.DestInfo = fmt.Sprintf("%s/%s", destNs, destService)
+
+	return connInfo, nil
 }
 
 // $SVC.$NAMESPACE.svc.cluster.local
