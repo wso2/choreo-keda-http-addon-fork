@@ -56,10 +56,22 @@ func NewPrometheusMetrics(options ...prometheus.Option) *PrometheusMetrics {
 		log.Fatalf("could not create new Prometheus pending request counter: %v", err)
 	}
 
+	choreoRequestCounter, err := meter.Int64Counter("choreo_request_count", api.WithDescription("a counter of choreo requests processed by the interceptor proxy"))
+	if err != nil {
+		log.Fatalf("could not create new Prometheus choreo request counter: %v", err)
+	}
+
+	choreoRequestDuration, err := meter.Float64Histogram("choreo_request_duration", api.WithDescription("a histogram of the duration of choreo requests processed by the interceptor proxy"))
+	if err != nil {
+		log.Fatalf("could not create new Prometheus choreo request duration histogram: %v", err)
+	}
+
 	return &PrometheusMetrics{
 		meter:                 meter,
 		requestCounter:        reqCounter,
 		pendingRequestCounter: pendingRequestCounter,
+		choreoRequestCounter:  choreoRequestCounter,
+		choreoRequestDuration: choreoRequestDuration,
 	}
 }
 
