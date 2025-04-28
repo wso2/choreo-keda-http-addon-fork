@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/kedacore/http-add-on/interceptor/handler"
@@ -84,6 +85,13 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	statusCode := mrw.statusCode
 	duration := time.Since(startTime)
+
+	if strings.HasPrefix(connInfo.SourceInfo, "dp-") {
+		connInfo.SourceInfo = fmt.Sprintf("%s-choreo-internal", connInfo.SourceInfo)
+	}
+	if strings.HasPrefix(connInfo.DestInfo, "dp-") {
+		connInfo.DestInfo = fmt.Sprintf("%s-choreo-internal", connInfo.DestInfo)
+	}
 
 	metrics.RecordChoreoRequestCount(connInfo.SourceInfo, connInfo.DestInfo, statusCode)
 	metrics.RecordChoreoRequestDuration(connInfo.SourceInfo, connInfo.DestInfo, duration.Seconds())
