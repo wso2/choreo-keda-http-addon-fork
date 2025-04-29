@@ -81,7 +81,7 @@ func (p *PrometheusMetrics) RecordRequestCount(method string, path string, respo
 		attribute.NewSet(
 			attribute.Key("method").String(method),
 			attribute.Key("path").String(path),
-			attribute.Key("code").Int(responseCode),
+			attribute.Key("status").Int(responseCode),
 			attribute.Key("host").String(host),
 		),
 	)
@@ -106,7 +106,7 @@ func (p *PrometheusMetrics) RecordChoreoRequestCount(source string, destination 
 		attribute.NewSet(
 			attribute.Key("source").String(source),
 			attribute.Key("destination").String(destination),
-			attribute.Key("code").Int(statusCode),
+			attribute.Key("status").Int(statusCode),
 		),
 	)
 	p.choreoRequestCounter.Add(ctx, 1, opt)
