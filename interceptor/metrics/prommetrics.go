@@ -61,7 +61,11 @@ func NewPrometheusMetrics(options ...prometheus.Option) *PrometheusMetrics {
 		log.Fatalf("could not create new Prometheus choreo request counter: %v", err)
 	}
 
-	choreoRequestDuration, err := meter.Float64Histogram("keda_metric_request_duration", api.WithDescription("a histogram of the duration of choreo requests processed by the interceptor proxy"))
+	choreoRequestDuration, err := meter.Float64Histogram(
+		"keda_metric_request_duration",
+		api.WithDescription("a histogram of the duration of choreo requests processed by the interceptor proxy"),
+		api.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+	)
 	if err != nil {
 		log.Fatalf("could not create new Prometheus choreo request duration histogram: %v", err)
 	}
