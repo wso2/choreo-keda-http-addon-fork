@@ -103,11 +103,17 @@ func (t *table) refreshMemory(ctx context.Context) error {
 }
 
 func (t *table) newMemoryFromHTTPSOs() TableMemory {
+	// Make a fast copy of the map while holding the lock briefly
 	t.httpScaledObjectsMutex.RLock()
-	defer t.httpScaledObjectsMutex.RUnlock()
+	mapSnapshot := make(map[types.NamespacedName]*httpv1alpha1.HTTPScaledObject, len(t.httpScaledObjects))
+	for key, httpso := range t.httpScaledObjects {
+		mapSnapshot[key] = httpso // Fast pointer copy
+	}
+	t.httpScaledObjectsMutex.RUnlock() // Release lock immediately!
 
+	// Build memory from snapshot without holding lock
 	tm := NewTableMemory()
-	for _, newHTTPSO := range t.httpScaledObjects {
+	for _, newHTTPSO := range mapSnapshot {
 		tm = tm.Remember(newHTTPSO)
 	}
 
@@ -160,12 +166,12 @@ func (t *table) OnAdd(obj interface{}, _ bool) {
 	}
 	t.queueCounter.EnsureKey(key.String(), window, granualrity)
 
-	defer t.memorySignaler.Signal()
-
 	t.httpScaledObjectsMutex.Lock()
-	defer t.httpScaledObjectsMutex.Unlock()
-
 	t.httpScaledObjects[key] = httpScaledObject
+	t.httpScaledObjectsMutex.Unlock()
+
+	// Signal immediately after map update to ensure memory refresh sees the latest state
+	t.memorySignaler.Signal()
 }
 
 func (t *table) OnUpdate(oldObj interface{}, newObj interface{}) {
@@ -191,17 +197,18 @@ func (t *table) OnUpdate(oldObj interface{}, newObj interface{}) {
 	t.queueCounter.UpdateBuckets(newKey.String(), window, granualrity)
 
 	mustDelete := oldKey != newKey
-	defer t.memorySignaler.Signal()
 
 	t.httpScaledObjectsMutex.Lock()
-	defer t.httpScaledObjectsMutex.Unlock()
-
 	t.httpScaledObjects[newKey] = newHTTPSO
 
 	if mustDelete {
 		delete(t.httpScaledObjects, oldKey)
 		t.queueCounter.RemoveKey(oldKey.String())
 	}
+	t.httpScaledObjectsMutex.Unlock()
+
+	// Signal immediately after map update to ensure memory refresh sees the latest state
+	t.memorySignaler.Signal()
 }
 
 func (t *table) OnDelete(obj interface{}) {
@@ -211,14 +218,14 @@ func (t *table) OnDelete(obj interface{}) {
 	}
 	key := *k8s.NamespacedNameFromObject(httpScaledObject)
 
-	defer t.memorySignaler.Signal()
-
 	t.httpScaledObjectsMutex.Lock()
-	defer t.httpScaledObjectsMutex.Unlock()
-
 	delete(t.httpScaledObjects, key)
+	t.httpScaledObjectsMutex.Unlock()
 
 	t.queueCounter.RemoveKey(key.String())
+
+	// Signal immediately after map update to ensure memory refresh sees the latest state
+	t.memorySignaler.Signal()
 }
 
 var _ util.HealthChecker = (*table)(nil)
