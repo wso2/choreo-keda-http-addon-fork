@@ -3,8 +3,11 @@ package routing
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -26,6 +29,28 @@ var (
 	errNotSyncedTable             = errors.New("table has not synced")
 )
 
+// TableConfig configures the routing table update strategy
+type TableConfig struct {
+	UseIncrementalUpdates bool
+	UpdateChannelSize     int
+}
+
+// DefaultTableConfig returns the default configuration (legacy behavior)
+func DefaultTableConfig() TableConfig {
+	return TableConfig{
+		UseIncrementalUpdates: false,
+		UpdateChannelSize:     1000,
+	}
+}
+
+// updateOperation represents an incremental update to the routing table
+type updateOperation struct {
+	operation  string                         // "add", "update", "delete"
+	oldHTTPSO  *httpv1alpha1.HTTPScaledObject // for updates/deletes
+	newHTTPSO  *httpv1alpha1.HTTPScaledObject // for adds/updates
+	responseCh chan error                     // for synchronous feedback if needed
+}
+
 type Table interface {
 	util.HealthChecker
 
@@ -40,16 +65,33 @@ type table struct {
 	httpScaledObjects                        map[types.NamespacedName]*httpv1alpha1.HTTPScaledObject
 	httpScaledObjectsMutex                   sync.RWMutex
 	memoryHolder                             util.AtomicValue[TableMemory]
-	memorySignaler                           util.Signaler
+	memorySignaler                           util.Signaler // Legacy signaler for rebuild approach
 	queueCounter                             queue.Counter
+
+	// Configuration
+	config TableConfig
+
+	// New fields for incremental updates (only used when config.UseIncrementalUpdates = true)
+	incrementalUpdateChan  chan updateOperation
+	incrementalInitialized atomic.Bool
 }
 
 func NewTable(sharedInformerFactory externalversions.SharedInformerFactory, namespace string, counter queue.Counter) (Table, error) {
+	return NewTableWithConfig(sharedInformerFactory, namespace, counter, DefaultTableConfig())
+}
+
+func NewTableWithConfig(sharedInformerFactory externalversions.SharedInformerFactory, namespace string, counter queue.Counter, config TableConfig) (Table, error) {
 	httpScaledObjects := informershttpv1alpha1.New(sharedInformerFactory, namespace, nil).HTTPScaledObjects()
 
 	t := table{
 		httpScaledObjects: make(map[types.NamespacedName]*httpv1alpha1.HTTPScaledObject),
-		memorySignaler:    util.NewSignaler(),
+		memorySignaler:    util.NewSignaler(), // Legacy signaler
+		config:            config,
+	}
+
+	// Initialize incremental update channel if enabled
+	if config.UseIncrementalUpdates {
+		t.incrementalUpdateChan = make(chan updateOperation, config.UpdateChannelSize)
 	}
 
 	informer, ok := httpScaledObjects.Informer().(sharedIndexInformer)
@@ -120,12 +162,108 @@ func (t *table) newMemoryFromHTTPSOs() TableMemory {
 	return tm
 }
 
+// New incremental update methods
+func (t *table) runIncrementalMemoryUpdater(ctx context.Context) error {
+	// Wait for event handler to be synced before first computation of routes
+	for !t.httpScaledObjectEventHandlerRegistration.HasSynced() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			continue
+		}
+	}
+
+	// Initial full build from existing map
+	t.httpScaledObjectsMutex.RLock()
+	initialMemory := t.buildMemoryFromMap(t.httpScaledObjects)
+	t.httpScaledObjectsMutex.RUnlock()
+
+	t.memoryHolder.Set(initialMemory)
+	t.incrementalInitialized.Store(true)
+
+	// Process incremental updates
+	for {
+		select {
+		case update := <-t.incrementalUpdateChan:
+			err := t.applyIncrementalUpdate(update)
+			if update.responseCh != nil {
+				update.responseCh <- err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (t *table) buildMemoryFromMap(httpsoMap map[types.NamespacedName]*httpv1alpha1.HTTPScaledObject) TableMemory {
+	tm := NewTableMemory()
+	for _, httpso := range httpsoMap {
+		tm = tm.Remember(httpso)
+	}
+	return tm
+}
+
+func (t *table) applyIncrementalUpdate(update updateOperation) error {
+	currentMemory := t.memoryHolder.Get()
+	var newMemory TableMemory
+
+	switch update.operation {
+	case "add":
+		newMemory = currentMemory.Remember(update.newHTTPSO)
+	case "update":
+		// Remove old, add new
+		if update.oldHTTPSO != nil {
+			oldKey := *k8s.NamespacedNameFromObject(update.oldHTTPSO)
+			currentMemory = currentMemory.Forget(&oldKey)
+		}
+		newMemory = currentMemory.Remember(update.newHTTPSO)
+	case "delete":
+		if update.oldHTTPSO != nil {
+			oldKey := *k8s.NamespacedNameFromObject(update.oldHTTPSO)
+			newMemory = currentMemory.Forget(&oldKey)
+		} else {
+			return fmt.Errorf("delete operation requires oldHTTPSO")
+		}
+	default:
+		return fmt.Errorf("unknown operation: %s", update.operation)
+	}
+
+	// Atomic update
+	t.memoryHolder.Set(newMemory)
+	return nil
+}
+
+// Helper method to send updates based on configuration
+func (t *table) sendUpdate(update updateOperation) {
+	if t.config.UseIncrementalUpdates {
+		// Send incremental update (non-blocking)
+		select {
+		case t.incrementalUpdateChan <- update:
+			// Sent successfully
+		default:
+			// Channel full - this shouldn't happen with proper sizing
+			log.Printf("Warning: Incremental update channel full, skipping update for %s", update.operation)
+		}
+	} else {
+		// Use legacy signaler
+		t.memorySignaler.Signal()
+	}
+}
+
 var _ Table = (*table)(nil)
 
 func (t *table) Start(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(util.ApplyContext(t.runInformer, ctx))
-	eg.Go(util.ApplyContext(t.refreshMemory, ctx))
+
+	// Choose memory update strategy based on configuration
+	if t.config.UseIncrementalUpdates {
+		eg.Go(util.ApplyContext(t.runIncrementalMemoryUpdater, ctx))
+	} else {
+		eg.Go(util.ApplyContext(t.refreshMemory, ctx))
+	}
+
 	return eg.Wait()
 }
 
@@ -144,8 +282,12 @@ func (t *table) Route(req *http.Request) *httpv1alpha1.HTTPScaledObject {
 }
 
 func (t *table) HasSynced() bool {
-	tm := t.memoryHolder.Get()
-	return tm != nil
+	if t.config.UseIncrementalUpdates {
+		return t.incrementalInitialized.Load()
+	} else {
+		tm := t.memoryHolder.Get()
+		return tm != nil
+	}
 }
 
 var _ cache.ResourceEventHandler = (*table)(nil)
@@ -170,8 +312,12 @@ func (t *table) OnAdd(obj interface{}, _ bool) {
 	t.httpScaledObjects[key] = httpScaledObject
 	t.httpScaledObjectsMutex.Unlock()
 
-	// Signal immediately after map update to ensure memory refresh sees the latest state
-	t.memorySignaler.Signal()
+	// Send update based on configuration
+	update := updateOperation{
+		operation: "add",
+		newHTTPSO: httpScaledObject,
+	}
+	t.sendUpdate(update)
 }
 
 func (t *table) OnUpdate(oldObj interface{}, newObj interface{}) {
@@ -207,8 +353,13 @@ func (t *table) OnUpdate(oldObj interface{}, newObj interface{}) {
 	}
 	t.httpScaledObjectsMutex.Unlock()
 
-	// Signal immediately after map update to ensure memory refresh sees the latest state
-	t.memorySignaler.Signal()
+	// Send update based on configuration
+	update := updateOperation{
+		operation: "update",
+		oldHTTPSO: oldHTTPSO,
+		newHTTPSO: newHTTPSO,
+	}
+	t.sendUpdate(update)
 }
 
 func (t *table) OnDelete(obj interface{}) {
@@ -224,8 +375,12 @@ func (t *table) OnDelete(obj interface{}) {
 
 	t.queueCounter.RemoveKey(key.String())
 
-	// Signal immediately after map update to ensure memory refresh sees the latest state
-	t.memorySignaler.Signal()
+	// Send update based on configuration
+	update := updateOperation{
+		operation: "delete",
+		oldHTTPSO: httpScaledObject,
+	}
+	t.sendUpdate(update)
 }
 
 var _ util.HealthChecker = (*table)(nil)
