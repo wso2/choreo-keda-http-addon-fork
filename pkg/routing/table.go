@@ -20,6 +20,7 @@ import (
 	"github.com/kedacore/http-add-on/pkg/k8s"
 	"github.com/kedacore/http-add-on/pkg/queue"
 	"github.com/kedacore/http-add-on/pkg/util"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -33,6 +34,9 @@ var (
 type TableConfig struct {
 	UseIncrementalUpdates bool
 	UpdateChannelSize     int
+	// Scale testing configuration
+	MockObjectsCount  int  // Number of mock HTTPScaledObjects to add for testing
+	EnableMockObjects bool // Enable mock object generation
 }
 
 // DefaultTableConfig returns the default configuration (legacy behavior)
@@ -40,6 +44,8 @@ func DefaultTableConfig() TableConfig {
 	return TableConfig{
 		UseIncrementalUpdates: false,
 		UpdateChannelSize:     1000,
+		MockObjectsCount:      0,
+		EnableMockObjects:     false,
 	}
 }
 
@@ -204,6 +210,8 @@ func (t *table) runIncrementalMemoryUpdater(ctx context.Context) error {
 	t.memoryHolder.Set(initialMemory)
 	t.incrementalInitialized.Store(true)
 
+	log.Printf("Initial routing table built with %d HTTPScaledObjects", len(t.httpScaledObjects))
+
 	// Process incremental updates
 	for {
 		select {
@@ -222,6 +230,20 @@ func (t *table) buildMemoryFromMap(httpsoMap map[types.NamespacedName]*httpv1alp
 	tm := NewTableMemory()
 	for _, httpso := range httpsoMap {
 		tm = tm.Remember(httpso)
+	}
+	// Add mock objects for scale testing if configured
+	if t.config.EnableMockObjects && t.config.MockObjectsCount > 0 {
+		log.Printf("Adding %d mock HTTPScaledObjects for scale testing", t.config.MockObjectsCount)
+		start := time.Now()
+
+		mockObjects := t.generateMockHTTPScaledObjects(t.config.MockObjectsCount)
+		for _, mockHttpso := range mockObjects {
+			tm = tm.Remember(mockHttpso)
+		}
+
+		duration := time.Since(start)
+		log.Printf("Added %d mock objects in %v (avg: %v per object)",
+			t.config.MockObjectsCount, duration, duration/time.Duration(t.config.MockObjectsCount))
 	}
 	return tm
 }
@@ -413,4 +435,52 @@ func (t *table) HealthCheck(_ context.Context) error {
 	}
 
 	return nil
+}
+
+// generateMockHTTPScaledObjects creates mock HTTPScaledObjects for scale testing
+func (t *table) generateMockHTTPScaledObjects(count int) []*httpv1alpha1.HTTPScaledObject {
+	objects := make([]*httpv1alpha1.HTTPScaledObject, count)
+
+	for i := 0; i < count; i++ {
+		name := fmt.Sprintf("mock-httpso-%d", i)
+		namespace := fmt.Sprintf("mock-namespace-%d", i%100) // Distribute across 100 namespaces
+		host := fmt.Sprintf("mock-app-%d.example.com", i)
+
+		httpso := &httpv1alpha1.HTTPScaledObject{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              name,
+				Namespace:         namespace,
+				CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Duration(i) * time.Second)),
+				// Add a label to identify mock objects
+				Labels: map[string]string{
+					"mock-object": "true",
+					"scale-test":  "true",
+				},
+			},
+			Spec: httpv1alpha1.HTTPScaledObjectSpec{
+				Hosts: []string{host},
+				PathPrefixes: []string{
+					fmt.Sprintf("/api/v1/mock-%d", i),
+					fmt.Sprintf("/mock-app-%d", i),
+					fmt.Sprintf("/test/%d", i%10), // Create some path conflicts
+				},
+				ScaleTargetRef: httpv1alpha1.ScaleTargetRef{
+					Name:    fmt.Sprintf("mock-deployment-%d", i),
+					Service: fmt.Sprintf("mock-service-%d", i),
+					Port:    8080,
+				},
+				// Add some variety in configurations
+				ScalingMetric: &httpv1alpha1.ScalingMetricSpec{
+					Rate: &httpv1alpha1.RateMetricSpec{
+						Window:      metav1.Duration{Duration: time.Duration(30+i%60) * time.Second},
+						Granularity: metav1.Duration{Duration: time.Duration(1+i%5) * time.Second},
+					},
+				},
+			},
+		}
+
+		objects[i] = httpso
+	}
+
+	return objects
 }

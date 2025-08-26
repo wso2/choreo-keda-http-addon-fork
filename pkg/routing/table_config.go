@@ -23,6 +23,18 @@ func NewTableConfigFromEnv() TableConfig {
 		}
 	}
 
+	// Check for mock objects configuration
+	if enableMocks := os.Getenv("KEDA_HTTP_ROUTING_ENABLE_MOCK_OBJECTS"); enableMocks == "true" {
+		config.EnableMockObjects = true
+
+		// Check for mock object count
+		if mockCount := os.Getenv("KEDA_HTTP_ROUTING_MOCK_OBJECTS_COUNT"); mockCount != "" {
+			if count, err := strconv.Atoi(mockCount); err == nil && count > 0 {
+				config.MockObjectsCount = count
+			}
+		}
+	}
+
 	return config
 }
 
