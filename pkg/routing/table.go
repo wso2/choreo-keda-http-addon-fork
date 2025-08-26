@@ -43,9 +43,32 @@ func DefaultTableConfig() TableConfig {
 	}
 }
 
+// UpdateOperationType represents the type of update operation
+type UpdateOperationType int
+
+const (
+	UpdateOperationAdd UpdateOperationType = iota
+	UpdateOperationUpdate
+	UpdateOperationDelete
+)
+
+// String returns the string representation of the operation type
+func (op UpdateOperationType) String() string {
+	switch op {
+	case UpdateOperationAdd:
+		return "add"
+	case UpdateOperationUpdate:
+		return "update"
+	case UpdateOperationDelete:
+		return "delete"
+	default:
+		return "unknown"
+	}
+}
+
 // updateOperation represents an incremental update to the routing table
 type updateOperation struct {
-	operation string                         // "add", "update", "delete"
+	operation UpdateOperationType            // "add", "update", "delete"
 	oldHTTPSO *httpv1alpha1.HTTPScaledObject // for updates/deletes
 	newHTTPSO *httpv1alpha1.HTTPScaledObject // for adds/updates
 }
@@ -76,7 +99,7 @@ type table struct {
 }
 
 func NewTable(sharedInformerFactory externalversions.SharedInformerFactory, namespace string, counter queue.Counter) (Table, error) {
-	return NewTableWithConfig(sharedInformerFactory, namespace, counter, DefaultTableConfig())
+	return NewTableWithConfig(sharedInformerFactory, namespace, counter, NewTableConfigFromEnv())
 }
 
 func NewTableWithConfig(sharedInformerFactory externalversions.SharedInformerFactory, namespace string, counter queue.Counter, config TableConfig) (Table, error) {
@@ -208,16 +231,16 @@ func (t *table) applyIncrementalUpdate(update updateOperation) error {
 	var newMemory TableMemory
 
 	switch update.operation {
-	case "add":
+	case UpdateOperationAdd:
 		newMemory = currentMemory.Remember(update.newHTTPSO)
-	case "update":
+	case UpdateOperationUpdate:
 		// Remove old, add new
 		if update.oldHTTPSO != nil {
 			oldKey := *k8s.NamespacedNameFromObject(update.oldHTTPSO)
 			currentMemory = currentMemory.Forget(&oldKey)
 		}
 		newMemory = currentMemory.Remember(update.newHTTPSO)
-	case "delete":
+	case UpdateOperationDelete:
 		if update.oldHTTPSO != nil {
 			oldKey := *k8s.NamespacedNameFromObject(update.oldHTTPSO)
 			newMemory = currentMemory.Forget(&oldKey)
@@ -313,7 +336,7 @@ func (t *table) OnAdd(obj interface{}, _ bool) {
 
 	// Send update based on configuration
 	update := updateOperation{
-		operation: "add",
+		operation: UpdateOperationAdd,
 		newHTTPSO: httpScaledObject,
 	}
 	t.sendUpdate(update)
@@ -354,7 +377,7 @@ func (t *table) OnUpdate(oldObj interface{}, newObj interface{}) {
 
 	// Send update based on configuration
 	update := updateOperation{
-		operation: "update",
+		operation: UpdateOperationUpdate,
 		oldHTTPSO: oldHTTPSO,
 		newHTTPSO: newHTTPSO,
 	}
@@ -376,7 +399,7 @@ func (t *table) OnDelete(obj interface{}) {
 
 	// Send update based on configuration
 	update := updateOperation{
-		operation: "delete",
+		operation: UpdateOperationDelete,
 		oldHTTPSO: httpScaledObject,
 	}
 	t.sendUpdate(update)
