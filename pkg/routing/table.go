@@ -45,10 +45,9 @@ func DefaultTableConfig() TableConfig {
 
 // updateOperation represents an incremental update to the routing table
 type updateOperation struct {
-	operation  string                         // "add", "update", "delete"
-	oldHTTPSO  *httpv1alpha1.HTTPScaledObject // for updates/deletes
-	newHTTPSO  *httpv1alpha1.HTTPScaledObject // for adds/updates
-	responseCh chan error                     // for synchronous feedback if needed
+	operation string                         // "add", "update", "delete"
+	oldHTTPSO *httpv1alpha1.HTTPScaledObject // for updates/deletes
+	newHTTPSO *httpv1alpha1.HTTPScaledObject // for adds/updates
 }
 
 type Table interface {
@@ -187,8 +186,8 @@ func (t *table) runIncrementalMemoryUpdater(ctx context.Context) error {
 		select {
 		case update := <-t.incrementalUpdateChan:
 			err := t.applyIncrementalUpdate(update)
-			if update.responseCh != nil {
-				update.responseCh <- err
+			if err != nil {
+				log.Printf("OnIncrementalUpdate error: %v", err)
 			}
 		case <-ctx.Done():
 			return ctx.Err()
