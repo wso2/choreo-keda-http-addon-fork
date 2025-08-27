@@ -12,7 +12,7 @@ type Signaler interface {
 type signaler chan struct{}
 
 func NewSignaler() Signaler {
-	return make(signaler, 1)
+	return make(signaler, 1000)
 }
 
 var _ Signaler = (*signaler)(nil)
