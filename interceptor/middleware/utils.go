@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kedacore/http-add-on/pkg/util"
 )
 
 // ConnectionInfo holds information about the connection between source and destination services
@@ -18,7 +20,7 @@ type ConnectionInfo struct {
 
 func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.Duration) (ConnectionInfo, error) {
 	var connInfo ConnectionInfo
-
+	logger := util.LoggerFromContext(r.Context())
 	remoteIP := r.RemoteAddr
 	if remoteIP == "" {
 		return connInfo, fmt.Errorf("remote address not found")
@@ -29,6 +31,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	}
 
 	host := r.Host
+	logger.Info("Request Host: %s", host)
 	if host == "" {
 		return connInfo, fmt.Errorf("host not found")
 	}
@@ -57,8 +60,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	if len(names) == 0 {
 		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
+	logger.Info("Reverse DNS for %q: %v", remoteIP, names)
 	remoteDNS := names[0]
 	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
+	logger.Info("Extracted Pod Info - Pod: %q, Namespace: %q", remotePod, remoteNs)
 	if remoteNs == "" {
 		return connInfo, fmt.Errorf("namespace not found in %q", remoteDNS)
 	}
@@ -75,8 +80,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
 		destNs = remoteNs
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
+		logger.Info("Constructed Host for Source Namespace: %q", connInfo.Host)
 	} else {
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
+		logger.Info("Constructed Host for Destination Namespace: %q", connInfo.Host)
 	}
 
 	// Destination service in format "ns/service"
