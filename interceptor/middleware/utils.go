@@ -31,7 +31,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	}
 
 	host := r.Host
-	logger.Info("Request Host", host)
+	logger.Info("Request Host", "Host", host)
 	if host == "" {
 		return connInfo, fmt.Errorf("host not found")
 	}
