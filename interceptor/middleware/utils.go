@@ -31,7 +31,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	}
 
 	host := r.Host
-	logger.Info("Request Host: %s", host)
+	logger.Info("Request Host", host)
 	if host == "" {
 		return connInfo, fmt.Errorf("host not found")
 	}
@@ -60,10 +60,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	if len(names) == 0 {
 		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
-	logger.Info("Reverse DNS for %q: %v", remoteIP, names)
+	logger.Info("Reverse DNS for remote IP", remoteIP, "DNS names", names)
 	remoteDNS := names[0]
 	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
-	logger.Info("Extracted Pod Info - Pod: %q, Namespace: %q", remotePod, remoteNs)
+	logger.Info("Extracted Pod Info - Pod:", remotePod, "Namespace:", remoteNs)
 	if remoteNs == "" {
 		return connInfo, fmt.Errorf("namespace not found in %q", remoteDNS)
 	}
@@ -80,10 +80,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
 		destNs = remoteNs
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
-		logger.Info("Constructed Host for Source Namespace: %q", connInfo.Host)
+		logger.Info("Constructed Host for Source Namespace:", connInfo.Host)
 	} else {
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
-		logger.Info("Constructed Host for Destination Namespace: %q", connInfo.Host)
+		logger.Info("Constructed Host for Destination Namespace:", connInfo.Host)
 	}
 
 	// Destination service in format "ns/service"
