@@ -61,7 +61,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
 	logger.Info("Reverse DNS for", "remote IP", remoteIP, "DNS names", names)
-	remoteDNS := names[0]
+	remoteDNS := selectBestDNSName(names)
 	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
 	logger.Info("Extracted Pod Info", "Pod", remotePod, "Namespace", remoteNs)
 	if remoteNs == "" {
@@ -108,6 +108,25 @@ func extractServiceInfo(serviceURL string) (string, string) {
 	}
 
 	return "", ""
+}
+
+// selectBestDNSName selects the best DNS name from a list of names,
+// prioritizing namespaces ending with "choreo-apim"
+func selectBestDNSName(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+
+	// First, try to find a name with namespace ending in "choreo-apim"
+	for _, name := range names {
+		_, _, namespace := extractPodInfo(name)
+		if strings.HasSuffix(namespace, "choreo-apim") {
+			return name
+		}
+	}
+
+	// If no "choreo-apim" namespace found, return the first name
+	return names[0]
 }
 
 // $POD_IP.$DEPLOYMENT_NAME.$NAMESPACE.svc.cluster.local
