@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,6 +38,24 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// parseLogLevel converts a string log level to zapcore.Level
+func parseLogLevel(levelStr string) zapcore.Level {
+	switch levelStr {
+	case "debug":
+		return zapcore.DebugLevel
+	case "info":
+		return zapcore.InfoLevel
+	case "warn", "warning":
+		return zapcore.WarnLevel
+	case "error":
+		return zapcore.ErrorLevel
+	case "fatal":
+		return zapcore.FatalLevel
+	default:
+		return zapcore.InfoLevel
+	}
+}
+
 // +kubebuilder:rbac:groups=http.keda.sh,resources=httpscaledobjects,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 
@@ -47,6 +66,7 @@ func main() {
 
 	opts := zap.Options{
 		Development: true,
+		Level:       parseLogLevel(servingCfg.LogLevel),
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()

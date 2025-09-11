@@ -49,7 +49,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := util.LoggerFromContext(ctx)
 	hostPort := getPort(r)
 	connInfo, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
-	logger.Info("Connection Info", "Host", connInfo.Host, "SourceInfo", connInfo.SourceInfo, "DestInfo", connInfo.DestInfo)
+	logger.V(1).Info("Connection Info", "Host", connInfo.Host, "SourceInfo", connInfo.SourceInfo, "DestInfo", connInfo.DestInfo)
 	if err != nil {
 		sh := handler.NewStatic(http.StatusNotFound, err)
 		sh.ServeHTTP(w, r)
@@ -61,7 +61,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rm.probeHandler.ServeHTTP(w, r)
 			return
 		}
-		logger.Error(fmt.Errorf("HTTPScaledObject not found"), "HTTPScaledObject not found")
+		logger.V(1).Info("HTTPScaledObject not found")
 		sh := handler.NewStatic(http.StatusNotFound, nil)
 		sh.ServeHTTP(w, r)
 

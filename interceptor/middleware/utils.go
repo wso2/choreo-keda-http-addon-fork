@@ -31,7 +31,6 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	}
 
 	host := r.Host
-	logger.Info("Request Host", "Host", host)
 	if host == "" {
 		return connInfo, fmt.Errorf("host not found")
 	}
@@ -58,12 +57,15 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	}
 
 	if len(names) == 0 {
+		logger.Error(nil, "No names found for address", "host", host, "remote IP", remoteIP)
 		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
-	logger.Info("Reverse DNS for", "remote IP", remoteIP, "DNS names", names)
+	if len(names) > 1 {
+		logger.V(3).Info("More than one name found for address", "remote IP", remoteIP, "DNS names", names, "host", host)
+	}
 	remoteDNS := selectBestDNSName(names)
 	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
-	logger.Info("Extracted Pod Info", "Pod", remotePod, "Namespace", remoteNs)
+	logger.V(1).Info("Routing Info", "host", host, "remote IP", remoteIP, "remote DNS", remoteDNS, "remote Pod", remotePod, "remote Namespace", remoteNs)
 	if remoteNs == "" {
 		return connInfo, fmt.Errorf("namespace not found in %q", remoteDNS)
 	}
@@ -73,6 +75,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 
 	// Extracting service name and namespace from the host header
 	destService, destNs := extractServiceInfo(host)
+	logger.V(1).Info("Dest Service and Namespace", "dest Service", destService, "dest Namespace", destNs)
 
 	// If the caller is from user namespace or
 	// the destination namespace is not provided in the host header
@@ -80,10 +83,10 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 	if strings.HasPrefix(remoteNs, "dp-") || destNs == "" {
 		destNs = remoteNs
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, remoteNs, hostPort)
-		logger.Info("Constructed Host for Source Namespace", "Host", connInfo.Host)
+		logger.V(1).Info("Constructed Host for Source Namespace", "Host", connInfo.Host)
 	} else {
 		connInfo.Host = fmt.Sprintf("%s.%s%s", destService, destNs, hostPort)
-		logger.Info("Constructed Host for Destination Namespace", "Host", connInfo.Host)
+		logger.V(1).Info("Constructed Host for Destination Namespace", "Host", connInfo.Host)
 	}
 
 	// Destination service in format "ns/service"
