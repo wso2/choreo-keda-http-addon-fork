@@ -50,6 +50,8 @@ type Serving struct {
 	RequestQueueCooldownEnforcerInterval time.Duration `envconfig:"KEDA_HTTP_REQUEST_QUEUE_COOLDOWN_ENFORCER_INTERVAL" default:"5s"`
 	// Enable the hack to set the request queue size to 0 after a cooldown period
 	EnableRequestQueueCooldown bool `envconfig:"KEDA_HTTP_ENABLE_REQUEST_QUEUE_COOLDOWN" default:"false"`
+	// LogLevel is the logging level for the interceptor
+	LogLevel string `envconfig:"KEDA_HTTP_LOG_LEVEL" default:"info"`
 }
 
 // Parse parses standard configs using envconfig and returns a pointer to the
