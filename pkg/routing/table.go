@@ -322,7 +322,6 @@ func (t *table) Route(req *http.Request) *httpv1alpha1.HTTPScaledObject {
 	}
 
 	key := NewKeyFromRequest(req)
-	log.Printf("Routing key: %s", key.String())
 	return tm.Route(key)
 }
 

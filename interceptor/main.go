@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -40,7 +41,7 @@ var (
 
 // parseLogLevel converts a string log level to zapcore.Level
 func parseLogLevel(levelStr string) zapcore.Level {
-	switch levelStr {
+	switch strings.ToLower(levelStr) {
 	case "debug":
 		return zapcore.DebugLevel
 	case "info":
@@ -64,10 +65,25 @@ func main() {
 	servingCfg := config.MustParseServing()
 	metricsCfg := config.MustParseMetrics()
 
+	// Parse the log level and set up verbosity
+	logLevel := parseLogLevel(servingCfg.LogLevel)
+
 	opts := zap.Options{
-		Development: true,
-		Level:       parseLogLevel(servingCfg.LogLevel),
+		Development: false,
+		Level:       logLevel,
 	}
+
+	// Configure verbosity for logr V() levels
+	// When debug level is enabled, we want to show V(1) and V(3) logs
+	// In zap with logr, verbosity levels work by having the base level
+	// set low enough to capture the verbose logs
+	if logLevel == zapcore.DebugLevel {
+		// Set level even lower to capture V(1), V(3) etc.
+		// In zap-logr integration, V(1) maps to Debug-1, V(3) maps to Debug-3
+		opts.Level = zapcore.Level(-3)            // This allows V(3) logs to show
+		opts.StacktraceLevel = zapcore.ErrorLevel // Only show stack traces on errors
+	}
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 

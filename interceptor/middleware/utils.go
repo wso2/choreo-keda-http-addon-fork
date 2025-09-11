@@ -61,7 +61,7 @@ func getHost(r *http.Request, reverseDNSRetry int, reverseDNSRetryInternal time.
 		return connInfo, fmt.Errorf("no names found for address %q", remoteIP)
 	}
 	if len(names) > 1 {
-		logger.V(3).Info("More than one name found for address", "remote IP", remoteIP, "DNS names", names, "host", host)
+		logger.Info("More than one name found for address", "remote IP", remoteIP, "DNS names", names, "host", host)
 	}
 	remoteDNS := selectBestDNSName(names)
 	_, remotePod, remoteNs := extractPodInfo(remoteDNS)
