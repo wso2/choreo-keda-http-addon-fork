@@ -170,6 +170,8 @@ func main() {
 			setupLog.Error(err, "routing table failed")
 			return err
 		}
+		// log the number of HTTPScaledObjects in the routing table
+		setupLog.Info("number of HTTPScaledObjects in the routing table", "count", routingTable.GetHTTPScaledObjectsCount())
 
 		return nil
 	})

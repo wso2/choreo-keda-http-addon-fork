@@ -51,6 +51,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	connInfo, err := getHost(r, rm.reverseDNSRetry, rm.reverseDNSRetryInterval)
 	logger.V(1).Info("Connection Info", "Host", connInfo.Host, "SourceInfo", connInfo.SourceInfo, "DestInfo", connInfo.DestInfo)
 	if err != nil {
+		logger.Error(err, "failed to get host, returning 404", "host", r.Host, "remoteAddr", r.RemoteAddr)
 		sh := handler.NewStatic(http.StatusNotFound, err)
 		sh.ServeHTTP(w, r)
 	}
@@ -61,7 +62,7 @@ func (rm *Routing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			rm.probeHandler.ServeHTTP(w, r)
 			return
 		}
-		logger.V(1).Info("HTTPScaledObject not found")
+		logger.Info("Failed to get HTTPScaledObject for the host", "host", r.Host, "remoteAddr", r.RemoteAddr)
 		sh := handler.NewStatic(http.StatusNotFound, nil)
 		sh.ServeHTTP(w, r)
 
