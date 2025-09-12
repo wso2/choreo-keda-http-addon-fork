@@ -85,6 +85,7 @@ type Table interface {
 	Start(ctx context.Context) error
 	Route(req *http.Request) *httpv1alpha1.HTTPScaledObject
 	HasSynced() bool
+	GetHTTPScaledObjectsCount() int
 }
 
 type table struct {
@@ -332,6 +333,13 @@ func (t *table) HasSynced() bool {
 		tm := t.memoryHolder.Get()
 		return tm != nil
 	}
+}
+
+func (t *table) GetHTTPScaledObjectsCount() int {
+	t.httpScaledObjectsMutex.RLock()
+	count := len(t.httpScaledObjects)
+	t.httpScaledObjectsMutex.RUnlock()
+	return count
 }
 
 var _ cache.ResourceEventHandler = (*table)(nil)

@@ -33,6 +33,10 @@ func (t Table) HasSynced() bool {
 	return true
 }
 
+func (t Table) GetHTTPScaledObjectsCount() int {
+	return len(t.Memory)
+}
+
 var _ util.HealthChecker = (*Table)(nil)
 
 func (t Table) HealthCheck(_ context.Context) error {
