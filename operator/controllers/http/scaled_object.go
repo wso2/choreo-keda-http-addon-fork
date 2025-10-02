@@ -7,10 +7,12 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	httpv1alpha1 "github.com/kedacore/http-add-on/operator/apis/http/v1alpha1"
+	"github.com/kedacore/http-add-on/pkg/env"
 	"github.com/kedacore/http-add-on/pkg/k8s"
 )
 
@@ -34,6 +36,11 @@ func (r *HTTPScaledObjectReconciler) createOrUpdateScaledObject(
 		maxReplicaCount = replicas.Max
 	}
 
+	cooldownPeriod := httpso.Spec.CooldownPeriod
+	if cooldownPeriod == nil {
+		cooldownPeriod = ptr.To(env.GetInt32Or("KEDAHTTP_COOLDOWN_PERIOD", 300))
+	}
+
 	appScaledObject := k8s.NewScaledObject(
 		httpso.GetNamespace(),
 		httpso.GetName(), // HTTPScaledObject name is the same as the ScaledObject name
@@ -43,7 +50,7 @@ func (r *HTTPScaledObjectReconciler) createOrUpdateScaledObject(
 		externalScalerHostName,
 		minReplicaCount,
 		maxReplicaCount,
-		httpso.Spec.CooldownPeriod,
+		cooldownPeriod,
 	)
 
 	// Set HTTPScaledObject instance as the owner and controller
