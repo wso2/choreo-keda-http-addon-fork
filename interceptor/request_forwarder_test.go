@@ -288,3 +288,51 @@ func TestForwardRequestRedirectAndHeaders(t *testing.T) {
 	r.Equal("somethingcustom", res.Header().Get("X-Custom-Header"))
 	r.Equal("Hello from srv", res.Body.String())
 }
+
+func TestForwardRequestPreservesXHeaders(t *testing.T) {
+	r := require.New(t)
+	expectedHeaders := map[string]string{
+		"X-Correlation-Id": "test-correlation-123",
+		"X-Request-Id":     "req-456",
+		"X-Trace-Id":       "trace-789",
+	}
+
+	receivedHeaders := make(map[string]string)
+	srv, srvURL, err := kedanet.StartTestServer(
+		kedanet.NewTestHTTPHandlerWrapper(
+			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				for key := range expectedHeaders {
+					receivedHeaders[key] = req.Header.Get(key)
+				}
+				w.WriteHeader(200)
+				_, err := w.Write([]byte("ok"))
+				r.NoError(err)
+			}),
+		),
+	)
+	r.NoError(err)
+	defer srv.Close()
+
+	timeouts := defaultTimeouts()
+	timeouts.Connect = 10 * time.Millisecond
+	timeouts.ResponseHeader = 10 * time.Millisecond
+	backoff := timeouts.Backoff(2, 2, 1)
+	dialCtxFunc := retryDialContextFunc(timeouts, backoff)
+	res, req, err := reqAndRes("/testfwd")
+	r.NoError(err)
+	for key, val := range expectedHeaders {
+		req.Header.Set(key, val)
+	}
+	forwardRequest(
+		logr.Discard(),
+		res,
+		req,
+		newRoundTripper(dialCtxFunc, timeouts.ResponseHeader),
+		srvURL,
+		2,
+	)
+	r.Equal(200, res.Code)
+	for key, expected := range expectedHeaders {
+		r.Equal(expected, receivedHeaders[key], "%s header was not preserved", key)
+	}
+}

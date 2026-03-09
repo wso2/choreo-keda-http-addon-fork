@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,11 +24,26 @@ func forwardRequest(
 	proxy := httputil.NewSingleHostReverseProxy(fwdSvcURL)
 	proxy.Transport = roundTripper
 	proxy.Director = func(req *http.Request) {
+		// Capture all X-* headers from the original request before
+		// modifying the outgoing request, so they are preserved
+		// through the proxy and not lost or overwritten.
+		xHeaders := make(http.Header)
+		for key, values := range r.Header {
+			if strings.HasPrefix(strings.ToUpper(key), "X-") {
+				xHeaders[key] = values
+			}
+		}
 		req.URL = fwdSvcURL
 		req.Host = fwdSvcURL.Host
 		req.URL.Path = r.URL.Path
 		req.URL.RawQuery = r.URL.RawQuery
 		req.Header.Del("X-Forwarded-For")
+		// Restore all original X-* headers (except X-Forwarded-For)
+		for key, values := range xHeaders {
+			if !strings.EqualFold(key, "X-Forwarded-For") {
+				req.Header[key] = values
+			}
+		}
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		w.WriteHeader(502)
